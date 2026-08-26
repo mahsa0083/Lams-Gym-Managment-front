@@ -1,0 +1,105 @@
+@layer components {
+  .dropdown {
+    @apply relative inline-block;
+  }
+
+  .dropdown-menu-wrapper {
+    @apply outline-hidden z-40;
+  }
+
+  .dropdown-menu {
+    @apply rounded-lg bg-white dark:bg-gray-900 ring-0 shadow-md border border-gray-200 dark:border-gray-600 focus:outline-none p-1 z-30 outline-none min-w-[220px];
+
+    &.top-start {
+      @apply ltr:left-0 rtl:right-0 bottom-full origin-bottom;
+    }
+
+    &.top-center {
+      @apply bottom-full left-1/2 origin-bottom;
+    }
+
+    &.top-end {
+      @apply ltr:right-0 rtl:left-0 bottom-full origin-bottom;
+    }
+
+    &.bottom-start {
+      @apply ltr:left-0 rtl:right-0 top-full origin-top;
+    }
+
+    &.bottom-center {
+      @apply left-1/2 top-full origin-top;
+    }
+
+    &.bottom-end {
+      @apply ltr:right-0 rtl:left-0 top-full origin-top;
+    }
+
+    &.middle-start-top {
+      @apply left-full top-0 origin-top;
+    }
+
+    &.middle-start-bottom {
+      @apply left-full bottom-0 origin-bottom;
+    }
+
+    &.middle-end-top {
+      @apply right-full top-0 origin-top;
+    }
+
+    &.middle-end-bottom {
+      @apply right-full bottom-0 origin-bottom;
+    }
+
+    .menu-item {
+      @apply cursor-pointer font-medium px-3 rounded-md flex items-center w-full whitespace-nowrap gap-x-2 transition-colors duration-150 text-gray-900 dark:text-gray-100;
+    
+      &.menu-item-hoverable {
+        @apply hover:text-gray-900 hover:bg-gray-100 dark:hover:text-gray-100 dark:hover:bg-gray-700;
+      }
+    
+      &.menu-item-active {
+        @apply font-semibold bg-gray-100/80 dark:bg-gray-700 text-gray-900 dark:text-gray-100;
+      }
+    
+      a {
+        @apply outline-0
+      }
+    }
+    
+    .menu-collapse-item {
+      @apply cursor-pointer select-none font-medium px-3 h-12 rounded-md flex items-center justify-between transition-colors duration-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-700;
+    
+      &.menu-collapse-item-active {
+        @apply text-primary bg-primary-subtle hover:bg-primary-subtle;
+      }
+    }
+    
+    .menu-item-divider {
+      @apply border-b border-gray-200 dark:border-gray-700 my-1 -mx-1;
+    }
+    
+    .menu-item-disabled {
+      @apply cursor-not-allowed opacity-40;
+    }
+    
+    .menu-item-link {
+      @apply flex w-full h-full items-center;
+    }
+  }
+
+  .dropdown-toggle-default {
+    @apply cursor-pointer p-1 inline-block font-semibold;
+
+    &.dropdown-toggle-disabled {
+      @apply opacity-60;
+    }
+  }
+
+  .dropdown-submenu-item {
+    @apply justify-between;
+  }
+
+  .dropdown-toggle-disabled {
+    @apply cursor-not-allowed;
+  }
+}

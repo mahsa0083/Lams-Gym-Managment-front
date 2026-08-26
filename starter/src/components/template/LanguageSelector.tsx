@@ -1,0 +1,64 @@
+import { useMemo } from 'react'
+import Avatar from '@/components/ui/Avatar'
+import Dropdown from '@/components/ui/Dropdown'
+import { LiTick } from '@/icons'
+import classNames from '@/utils/classNames'
+import { setLocale } from '@/server/actions/locale'
+import { useLocale } from 'next-intl'
+import type { CommonProps } from '@/@types/common'
+
+const languageList = [
+    { label: 'English', value: 'en', flag: 'US' },
+    { label: 'Chinese', value: 'zh', flag: 'CN' },
+    { label: 'Espanol', value: 'es', flag: 'ES' },
+    { label: 'Arabic', value: 'ar', flag: 'SA' },
+]
+
+const LanguageSelector = ({ className }: CommonProps) => {
+    const locale = useLocale()
+
+    const selectLangFlag = useMemo(() => {
+        return languageList.find((lang) => lang.value === locale)?.flag
+    }, [locale])
+
+    const handleUpdateLocale = async (locale: string) => {
+        await setLocale(locale)
+    }
+
+    const selectedLanguage = (
+        <div className={classNames(className, 'flex items-center')}>
+            <Avatar
+                size={24}
+                shape="circle"
+                src={`/img/countries/${selectLangFlag}.png`}
+            />
+        </div>
+    )
+
+    return (
+        <Dropdown renderTitle={selectedLanguage} placement="bottom-end">
+            {languageList.map((lang) => (
+                <Dropdown.Item
+                    key={lang.label}
+                    className="justify-between"
+                    eventKey={lang.label}
+                    onClick={() => handleUpdateLocale(lang.value)}
+                >
+                    <span className="flex items-center">
+                        <Avatar
+                            size={18}
+                            shape="circle"
+                            src={`/img/countries/${lang.flag}.png`}
+                        />
+                        <span className="ltr:ml-2 rtl:mr-2">{lang.label}</span>
+                    </span>
+                    {locale === lang.value && (
+                        <LiTick className="text-primary text-lg" />
+                    )}
+                </Dropdown.Item>
+            ))}
+        </Dropdown>
+    )
+}
+
+export default LanguageSelector

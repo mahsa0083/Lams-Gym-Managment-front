@@ -1,0 +1,67 @@
+@layer components {
+  .input {
+    @apply border
+      border-gray-300 
+      dark:border-gray-600
+      dark:bg-transparent
+      rounded-lg 
+      w-full 
+      py-1.5 px-3
+      focus:outline-none 
+      focus:ring-1 
+      focus-within:ring-1
+      focus:bg-transparent
+      focus:dark:bg-transparent
+      appearance-none 
+      transition 
+      duration-150 
+      text-gray-900
+      dark:text-gray-100
+      read-only:focus:ring-0
+      ease-in-out
+      placeholder:text-gray-400
+      dark:placeholder:text-gray-500;
+
+    &.input-invalid {
+      @apply focus:ring-1 focus:ring-error border-error focus:bg-transparent bg-error-subtle focus-within:ring-1 focus-within:ring-error focus-within:border-error focus-within:bg-transparent placeholder:text-error;
+    }
+
+    &.input-lg {
+      @apply text-lg;
+    }
+
+    &.input-sm {
+      @apply text-xs rounded-md py-1;
+    }
+  }
+
+  .input-focus {
+    @apply focus:ring-primary focus-within:ring-primary focus-within:border-primary focus:border-primary;
+  }
+
+  .input-addon {
+    @apply flex items-center px-4 rounded-lg border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-100/10;
+  }
+
+  .input-textarea {
+    min-height: 7rem;
+  }
+
+  .input-wrapper {
+    @apply relative w-full flex;
+  }
+
+  .input-disabled {
+    @apply bg-gray-100 dark:bg-gray-100/5 text-gray-900/40 dark:text-gray-100/15 !cursor-not-allowed placeholder:text-gray-900/20 dark:placeholder:text-gray-100/20;
+
+
+  }
+
+  .input-suffix-start {
+    @apply absolute top-2/4 transform -translate-y-2/4 ltr:left-2.5 rtl:right-2.5;
+  }
+
+  .input-suffix-end {
+    @apply absolute top-2/4 transform -translate-y-2/4 ltr:right-2.5 rtl:left-2.5 flex;
+  }
+}

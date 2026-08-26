@@ -1,0 +1,25 @@
+@layer components {
+  .notification {
+    @apply bg-white dark:bg-gray-700 shadow-md dark:shadow-lg rounded-lg mb-3 relative border border-gray-200 dark:border-gray-700;
+  }
+
+  .notification-content {
+    @apply p-4 flex;
+
+    &.no-child {
+      @apply items-center;
+    }
+  }
+
+  .notification-title {
+    @apply font-medium text-gray-800 dark:text-white;
+
+    &.notification-title-with-child {
+      @apply mb-1 text-base;
+    }
+  }
+
+  .notification-close {
+    @apply top-5 ltr:right-4 rtl:left-4;
+  }
+}

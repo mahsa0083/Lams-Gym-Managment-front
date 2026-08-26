@@ -1,0 +1,9 @@
+@layer components {
+	.button {
+		@apply font-medium outline-none whitespace-nowrap content-center;
+	}
+	
+	.button-press-feedback {
+		@apply transition-transform active:translate-y-[1px];
+	}	
+}

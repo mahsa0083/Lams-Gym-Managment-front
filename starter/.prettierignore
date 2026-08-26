@@ -1,0 +1,10 @@
+# Ignore artifacts:
+/.next
+/node_modules
+
+# Ignore files:
+/public
+/src/assets/styles
+/src/index.css
+package.json
+package.lock.json

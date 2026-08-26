@@ -1,0 +1,5 @@
+@layer components {
+  .tooltip {
+    @apply bg-gray-800 dark:bg-black z-50 max-w-[250px] text-white rounded-md py-1 px-2 relative;
+  }
+}

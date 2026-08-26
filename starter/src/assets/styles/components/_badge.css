@@ -1,0 +1,21 @@
+@layer components {
+
+  .badge {
+    @apply px-1 py-0.5 min-w-5 rounded-full text-xs font-medium bg-error text-white flex items-center justify-center;
+  }
+
+  .badge-dot {
+    @apply w-2.5 h-2.5 border border-white dark:border-gray-900 rounded-full text-xs font-medium bg-error text-white;
+  }
+
+  .badge-inner {
+    @apply absolute z-10 
+          transform
+          top-0
+          ltr:translate-x-2/4 
+          rtl:-translate-x-2/4 
+          -translate-y-2/4  
+          ltr:right-0 
+          rtl:left-0;
+  }
+}

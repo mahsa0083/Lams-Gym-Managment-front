@@ -1,0 +1,7 @@
+@layer components {
+    .spinner {
+        &.spinner-default-theme {
+            @apply text-primary
+        }
+    }
+}

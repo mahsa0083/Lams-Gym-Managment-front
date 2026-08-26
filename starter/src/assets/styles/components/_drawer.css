@@ -1,0 +1,70 @@
+@layer components {
+
+  .drawer-content-wrapper {
+    @apply fixed top-0 right-0 left-0 bottom-0 z-40;
+  }
+
+  .drawer-content {
+    @apply bg-white dark:bg-gray-800 shadow-xl absolute flex flex-col;
+  
+    &.vertical {
+      @apply w-full;
+    }
+  
+    &.horizontal {
+      @apply h-full;
+    }
+    
+    &.drawer-floating {
+      @apply rounded-lg m-2;
+      
+      &.drawer-floating-right {
+        @apply right-0 top-0 bottom-0 h-auto;
+      }
+      
+      &.drawer-floating-left {
+        @apply left-0 top-0 bottom-0 h-auto;
+      }
+      
+      &.drawer-floating-top {
+        @apply top-0 left-0 right-0 w-auto;
+      }
+      
+      &.drawer-floating-bottom {
+        @apply bottom-0 left-0 right-0 w-auto;
+      }
+    }
+  }
+  
+  .drawer-header {
+    @apply flex items-center justify-between py-3 px-4 border-b border-gray-200 dark:border-gray-700;
+  }
+  
+  .drawer-body {
+    @apply p-4 h-full overflow-y-auto;
+  }
+  
+  .drawer-footer {
+    @apply flex items-center justify-between py-3.5 px-4 border-t border-gray-200 dark:border-gray-700;
+  }
+  
+  .drawer-open {
+    &.drawer-lock-scroll {
+      @apply overflow-hidden;
+    }
+  }
+  
+  .drawer-overlay {
+    transition: all 0.3s ease-in-out;
+    @apply bg-black/60 dark:bg-black/30 inset-0 fixed backdrop-blur-md z-40;
+  }
+  
+  .drawer-overlay-after-open {
+    opacity: 1;
+  }
+  
+  .drawer-overlay-before-close {
+    opacity: 0;
+  }
+  
+}

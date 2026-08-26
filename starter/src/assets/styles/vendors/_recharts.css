@@ -1,0 +1,100 @@
+.chart {
+    .recharts-cartesian-grid-horizontal,
+    .recharts-cartesian-grid-vertical {
+        line {
+            @apply stroke-gray-200 dark:stroke-gray-700;
+        }
+    }
+
+    .recharts-cartesian-axis-line {
+        @apply stroke-gray-200 dark:stroke-gray-700;
+    }
+
+    .recharts-cartesian-axis {
+        &.recharts-xAxis {
+            .recharts-cartesian-axis-line {
+                @apply stroke-transparent;
+            }
+        }
+    }
+
+    .recharts-cartesian-axis-tick-value {
+        @apply fill-gray-500 dark:fill-gray-400 font-medium text-xs;
+    }
+
+    .recharts-polar-angle-axis-tick-value {
+        @apply fill-gray-500 dark:fill-gray-400 font-medium text-xs;
+    }
+
+    .recharts-dot {
+        @apply stroke-transparent;
+    }
+
+    .recharts-default-tooltip {
+        @apply bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2;
+    }
+
+    .recharts-custom-tooltip {
+        @apply border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 grid min-w-[8rem] items-start gap-1.5 rounded-lg  text-xs shadow-xl;
+    }
+
+    .recharts-custom-tooltip-content {
+        @apply px-2.5 py-1.5;
+    }
+
+    .recharts-custom-tooltip-label {
+        @apply text-gray-900 dark:text-gray-100 font-medium;
+    }
+
+    .recharts-custom-tooltip-item {
+        @apply flex w-full flex-wrap items-center gap-2;
+    }
+
+    .recharts-custom-tooltip-item-data {
+        @apply flex flex-1 justify-between items-center leading-none gap-x-3;
+    }
+
+    .recharts-custom-tooltip-item-value {
+        @apply text-gray-900 dark:text-gray-100 font-mono font-medium tabular-nums;
+    }
+
+    .recharts-custom-tooltip-indicator {
+        @apply shrink-0 rounded-[2px] h-2.5 w-2.5;
+    }
+
+    .recharts-custom-legend {
+        @apply flex items-center justify-center gap-4;
+    }
+
+    .recharts-custom-legend-item {
+        @apply flex items-center gap-1.5;
+    }
+
+    .recharts-custom-legend-item-value {
+        @apply leading-none font-medium;
+    }
+
+    .recharts-custom-legend-indicator {
+        @apply rounded-[3px] h-2.5 w-2.5;
+    }
+
+    .recharts-tooltip-cursor {
+        @apply stroke-gray-300 dark:stroke-gray-600;
+    }
+
+    .recharts-rectangle {
+        &.recharts-tooltip-cursor {
+            @apply stroke-gray-100 fill-gray-100 dark:fill-gray-700 dark:stroke-gray-700;
+        }
+    }
+
+    .recharts-polar-grid-angle {
+        > line {
+            @apply stroke-gray-200 dark:stroke-gray-700;
+        }
+    }
+
+    .recharts-polar-grid-concentric-polygon {
+        @apply stroke-gray-200 dark:stroke-gray-700;
+    }
+}

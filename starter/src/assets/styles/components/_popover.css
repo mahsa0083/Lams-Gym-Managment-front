@@ -1,0 +1,14 @@
+@layer components {
+
+    .popover-wrapper {
+        @apply z-40;
+    }
+
+    .popover {
+        @apply relative rounded-lg bg-white dark:bg-gray-900 ring-0 shadow-md border border-gray-200 dark:border-gray-600 focus:outline-none min-w-[220px];
+    }
+
+    .popover-content {
+        @apply p-4;
+    }
+}

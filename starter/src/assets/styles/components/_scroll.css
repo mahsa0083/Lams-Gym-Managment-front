@@ -1,0 +1,121 @@
+@layer components {
+
+  .scroll-root {
+      --scroll-scrollbar-size: 4px;
+      @apply relative overflow-hidden;
+  }
+    
+  .scroll-viewport {
+    @apply w-full h-full;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+
+    &:-webkit-scrollbar {
+      @apply hidden;
+    }
+
+    &:where([data-scrollbars='both'], [data-scrollbars='vertical']) {
+      &:where(
+          [data-offset-scrollbars='both'],
+          [data-offset-scrollbars='vertical'],
+          [data-offset-scrollbars='present']
+        ) {
+        &:where([data-vertical-hidden]) {
+          @apply pe-[0] ps-[0];
+        }
+
+        &:not([data-vertical-hidden]) {
+          @apply pe-[var(--scroll-scrollbar-size)] ps-[unset];
+        }
+      }
+    }
+
+    &:where([data-scrollbars='both'], [data-scrollbars='x']) {
+      &:where(
+          [data-offset-scrollbars='both'],
+          [data-offset-scrollbars='horizontal'],
+          [data-offset-scrollbars='present']
+        ) {
+        &:where([data-horizontal-hidden]) {
+          @apply pb-[0];
+        }
+
+        &:not([data-horizontal-hidden]) {
+          @apply pb-[var(--scroll-scrollbar-size)];
+        }
+      }
+    }
+
+    &.scroll-shadow-bottom {
+      @apply mask-b-from-75%;
+    }
+
+    &.scroll-shadow-top {
+      @apply mask-t-from-75%;
+    }
+
+    &.scroll-shadow-left {
+      @apply mask-l-from-75%;
+    }
+
+    &.scroll-shadow-right {
+      @apply mask-r-from-75%;
+    }
+  }
+
+  .scroll-viewport-content {
+    @apply table min-w-full;
+  }
+
+  .scroll-scrollbar {
+    @apply bg-gray-100 dark:bg-gray-100/10 select-none touch-none box-border transition-opacity duration-150 flex flex-row; 
+    &:where([data-hidden], [data-state='hidden']) {
+      @apply hidden;
+    }
+
+    &:where([data-orientation='vertical']) {
+      @apply top-0 bottom-[var(--scroll-corner-width)] end-[0];
+    }
+
+    &:where([data-orientation='horizontal']) {
+      @apply bottom-0 start-0 h-[var(--scroll-scrollbar-size)] flex-col end-[var(--scroll-corner-width)];
+    }
+  }
+
+  .thumb {
+    @apply 
+      bg-gray-400
+      dark:bg-gray-100/10
+      flex-1 
+      rounded-lg
+      relative 
+      transition-[background-color] 
+      duration-150 
+      ease-[ease] 
+      overflow-hidden 
+      opacity-[var(--scroll-thumb-opacity)] 
+      before:content-[''] 
+      before:absolute 
+      before:-translate-x-2/4 
+      before:-translate-y-2/4 
+      before:w-full 
+      before:h-full 
+      before:min-w-[44px] 
+      before:min-h-[44px] 
+      before:left-2/4 
+      before:top-2/4;
+  }
+    
+  .corner {
+    @apply absolute opacity-0 transition-opacity duration-150 ease-[ease] block bottom-0 end-[0];
+
+    &:where([data-hovered]) {
+      @apply opacity-100;
+    }
+    &:where([data-hidden]) {
+      @apply hidden;
+    }
+  }
+
+}

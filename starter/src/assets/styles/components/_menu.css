@@ -1,0 +1,155 @@
+@layer components {
+
+  .menu {
+    .menu-item {
+      @apply cursor-pointer font-semibold px-2 rounded-lg flex items-center w-full whitespace-nowrap gap-x-2 transition-colors duration-150 relative;
+      
+      a {
+        @apply outline-0
+      }
+    }
+
+    .menu-hierarchy-indicator {
+      @apply min-w-5 max-w-5 h-full relative flex justify-center items-center transition-all duration-150;
+
+      .menu-hierarchy-indicator-line {
+        @apply w-[2px] h-full bg-gray-300 dark:bg-gray-700;
+      }
+    }
+    
+    .menu-collapse-item {
+      @apply cursor-pointer select-none font-semibold px-2 h-12 rounded-lg flex items-center justify-between transition-colors duration-200;
+    }
+
+    .menu-collapse-content {
+      &.menu-collapse-content-indent {
+        @apply ltr:ml-4 rtl:mr-4;
+      }
+    }
+    
+    .menu-item-divider {
+      @apply border-b border-gray-200 dark:border-gray-700 my-2;
+    }
+    
+    .menu-item-disabled {
+      @apply cursor-not-allowed opacity-60;
+    }
+    
+    .menu-item-link {
+      @apply flex w-full h-full items-center;
+    }
+  
+  }
+
+  .menu-title {
+    @apply uppercase font-medium text-xs px-2 mt-4 mb-2;
+  
+    &.menu-title-light {
+      @apply text-gray-500;
+    }
+  
+    &.menu-title-dark {
+      @apply text-gray-300;
+    }
+  
+    &.menu-title-themed {
+      @apply text-gray-100/50;
+    }
+  }
+
+  .menu-default {
+    .menu-item {
+      @apply text-gray-700 dark:text-gray-400 inset-ring inset-ring-transparent;
+
+      &.menu-item-hoverable:not(.menu-item-active) {
+        @apply hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/50 dark:hover:bg-white/10;
+
+        &:hover {
+          .menu-hierarchy-indicator {
+          .menu-hierarchy-indicator-line {
+            @apply bg-gray-400 h-[70%];
+          }
+        }
+        }
+      }
+    
+      &.menu-item-active {
+        @apply text-primary hover:text-primary dark:text-white bg-gray-100 dark:bg-white/10 shadow inset-ring-gray-200 dark:inset-ring-gray-900 dark:shadow-[inset_0px_-2px_1px_rgba(0,0,0,0.4),inset_0px_1px_1px_rgba(255,255,255,0.11)];
+      }
+    }
+
+    .menu-collapse-item {
+      @apply text-gray-700 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200/50 dark:hover:bg-white/10;
+
+      &:hover {
+          .menu-hierarchy-indicator {
+          .menu-hierarchy-indicator-line {
+            @apply bg-gray-400 h-[70%];
+          }
+        }
+        }
+    
+      &.menu-collapse-item-active {
+        @apply text-primary dark:text-white;
+      }
+    }
+
+    .menu-hierarchy-indicator {
+      .menu-hierarchy-indicator-line {
+        @apply bg-gray-300;
+
+        &.active {
+          @apply bg-primary dark:bg-primary h-[70%];
+        }
+      }
+    }
+  }
+
+  .menu-subtle {
+    .menu-item {
+      @apply text-gray-700 dark:text-gray-400 inset-ring inset-ring-transparent;
+
+      &.menu-item-hoverable:not(.menu-item-active) {
+        @apply hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/50 dark:hover:bg-white/10;
+
+        &:hover {
+          .menu-hierarchy-indicator {
+          .menu-hierarchy-indicator-line {
+            @apply bg-gray-400 h-[70%];
+          }
+        }
+        }
+      }
+    
+      &.menu-item-active {
+        @apply text-primary hover:text-primary dark:text-white bg-white dark:bg-white/10 shadow inset-ring-gray-200 dark:inset-ring-gray-900 dark:shadow-[inset_0px_-2px_1px_rgba(0,0,0,0.4),inset_0px_1px_1px_rgba(255,255,255,0.11)];
+      }
+    }
+
+    .menu-collapse-item {
+      @apply text-gray-700 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-200/50 dark:hover:bg-white/10;
+
+      &:hover {
+          .menu-hierarchy-indicator {
+          .menu-hierarchy-indicator-line {
+            @apply bg-gray-400 h-[70%];
+          }
+        }
+        }
+    
+      &.menu-collapse-item-active {
+        @apply text-primary dark:text-white;
+      }
+    }
+
+    .menu-hierarchy-indicator {
+      .menu-hierarchy-indicator-line {
+        @apply bg-gray-300;
+
+        &.active {
+          @apply bg-primary dark:bg-primary h-[70%];
+        }
+      }
+    }
+  } 
+}

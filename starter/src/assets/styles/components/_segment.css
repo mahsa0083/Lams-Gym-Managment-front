@@ -1,0 +1,113 @@
+@layer components {
+  .segment {
+    @apply inline-grid align-top grid-flow-col auto-cols-[1fr] items-stretch rounded-md p-1 relative min-w-max isolate;
+  }
+
+  .segment-item {
+    @apply font-semibold outline-none cursor-pointer select-none rounded-md px-5 md:w-auto transition-all duration-100;
+
+    &:not(.segment-item-active):not(.segment-item-disabled) {
+      @apply hover:text-gray-800 hover:dark:text-gray-100
+    }
+
+    &.segment-item-active {
+      @apply text-gray-900 dark:text-gray-100;
+
+      &.segment-item-multiple-selectable {
+        @apply bg-white dark:bg-gray-100/15 shadow-sm;
+      }
+    }
+
+    &:disabled {
+      @apply cursor-not-allowed opacity-40;
+    }
+  }
+
+  .segment-item-indicator {
+    @apply hidden absolute z-[-1] h-full pointer-events-none transition-transform ease-[cubic-bezier(0.445,0.05,0.55,0.95)] duration-100 ltr:left-0 rtl:right-0 top-0 before:absolute before:rounded-md before:bg-white dark:before:bg-gray-100/15 before:content-[''] before:inset-1 before:shadow-sm;
+
+    :where(.segment-item[data-state='on'])~& {
+      @apply block;
+    }
+
+    &:where(:nth-child(2)) {
+      @apply w-[calc(100%_/_1)];
+    }
+
+    &:where(:nth-child(3)) {
+      @apply w-[calc(100%_/_2)];
+    }
+
+    &:where(:nth-child(4)) {
+      @apply w-[calc(100%_/_3)];
+    }
+
+    &:where(:nth-child(5)) {
+      @apply w-[calc(100%_/_4)];
+    }
+
+    &:where(:nth-child(6)) {
+      @apply w-[calc(100%_/_5)];
+    }
+
+    &:where(:nth-child(7)) {
+      @apply w-[calc(100%_/_6)];
+    }
+
+    &:where(:nth-child(8)) {
+      @apply w-[calc(100%_/_7)];
+    }
+
+    &:where(:nth-child(9)) {
+      @apply w-[calc(100%_/_8)];
+    }
+
+    &:where(:nth-child(10)) {
+      @apply w-[calc(100%_/_9)];
+    }
+
+    &:where(:nth-child(11)) {
+      @apply w-[calc(100%_/_10)];
+    }
+
+    :where(.segment-item[data-state='on']:nth-child(1))~& {
+      @apply ltr:translate-x-0 rtl:translate-x-0;
+    }
+
+    :where(.segment-item[data-state='on']:nth-child(2))~& {
+      @apply ltr:translate-x-[100%] rtl:-translate-x-[100%];
+    }
+
+    :where(.segment-item[data-state='on']:nth-child(3))~& {
+      @apply ltr:translate-x-[200%] rtl:-translate-x-[200%];
+    }
+
+    :where(.segment-item[data-state='on']:nth-child(4))~& {
+      @apply ltr:translate-x-[300%] rtl:-translate-x-[300%];
+    }
+
+    :where(.segment-item[data-state='on']:nth-child(5))~& {
+      @apply ltr:translate-x-[400%] rtl:-translate-x-[400%];
+    }
+
+    :where(.segment-item[data-state='on']:nth-child(6))~& {
+      @apply ltr:translate-x-[500%] rtl:-translate-x-[500%];
+    }
+
+    :where(.segment-item[data-state='on']:nth-child(7))~& {
+      @apply ltr:translate-x-[600%] rtl:-translate-x-[600%];
+    }
+
+    :where(.segment-item[data-state='on']:nth-child(8))~& {
+      @apply ltr:translate-x-[700%] rtl:-translate-x-[700%];
+    }
+
+    :where(.segment-item[data-state='on']:nth-child(9))~& {
+      @apply ltr:translate-x-[800%] rtl:-translate-x-[800%];
+    }
+
+    :where(.segment-item[data-state='on']:nth-child(10))~& {
+      @apply ltr:translate-x-[900%] rtl:-translate-x-[900%];
+    }
+  }
+}

@@ -1,0 +1,8 @@
+@layer components {
+  .close-button {
+    &[type='button'],
+    &[type='reset'] {
+      @apply outline-none text-lg rounded-full p-1.5 hover:text-gray-800 dark:hover:text-gray-100;
+    }
+  }  
+}

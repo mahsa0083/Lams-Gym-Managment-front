@@ -1,0 +1,113 @@
+
+[data-role="TRAINER"] {
+  --primary: #161E54;         
+  --primary-deep: #F16D34;   
+  --primary-mild: #FF986A;   
+  --primary-subtle: #BBE0EF;  
+  --sidebar-bg: #060607;      
+  --sidebar-text: #BBE0EF;    
+}
+/* 🛠️ استایل جبرانی برای عنوان منوهای کشویی (Collapse) و آیکون‌های آن‌ها */
+[data-role] .nav-collapse-title,
+[data-role] .menu-collapse-item > div,
+[data-role] .sidebar-menu-collapse-header,
+[data-role] [class*="collapse"] > span,
+[data-role] [class*="collapse"] > svg {
+  color: var(--sidebar-text) !important;
+  fill: var(--sidebar-text) !important;
+}
+
+/* رنگ فلش و متن هنگام هوور (Hover) روی منوی اصلی */
+[data-role] [class*="collapse"]:hover > span,
+[data-role] [class*="collapse"]:hover > svg {
+  color: var(--sidebar-active-text, var(--sidebar-text)) !important;
+}
+
+/* ⚡ تم عضو (MEMBER - Navy & Red) */
+[data-role="MEMBER"] {
+  --primary: #1D3557;
+  --primary-deep: #E63946;
+  --primary-mild: #A8DADC;
+  --primary-subtle: #fffaed;
+  --sidebar-bg: #457B9D;
+  --sidebar-text: #F1FAEE;
+}
+
+
+[data-role="ADMIN"] {
+  --primary: #111844;       
+  --primary-deep: #4B5694;  
+  --primary-mild: #7288AE;  
+  --primary-subtle: #F0F4F8;
+  --sidebar-bg: #111844;    
+  --sidebar-text: #EAE0CF;  
+  --text-war: #F05454;
+}
+
+/* 🎨 اعمال مستقیم رنگ روی کامپوننت سایدبار قالب */
+.side-nav,
+.side-nav-bg {
+  background-color: var(--primary) !important;
+  color: var(--primary) !important;
+}
+
+/* رنگ آیکون‌ها و متن‌های داخل سایدبار */
+.side-nav .menu-item,
+.side-nav .menu-item-text,
+.side-nav .menu-item-icon {
+  color: var(--primary-subtle) !important;
+}
+/* ==========================================
+   🌐 ۲. استایل‌های عمومی و فونت (کد شما)
+   ========================================== */
+
+body {
+    font-feature-settings: "ss01";
+    font-family: "Kook", system-ui, sans-serif;
+    font-weight: 500;
+    overflow-x: hidden !important;
+}
+
+/* استایل‌های نمودار (Recharts) */
+.chart,
+.chart * {
+    font-family: "Kook" !important;
+    font-feature-settings: "Kook";
+    font-variant-numeric: "Kook";
+}
+
+.bar {
+    direction: rtl !important;
+}
+
+.recharts-cartesian-axis-tick-labels {
+    font-feature-settings: "ss01" !important;
+    font-family: "Kook", system-ui, sans-serif !important;
+}
+
+/* حذف پس‌زمینه پیش‌فرض قالب و اعمال پس‌زمینه دلخواه برای پنل مربی */
+[data-role="TRAINER"] body, 
+[data-role="TRAINER"] .app-layout,
+[data-role="TRAINER"] main {
+  background-color: #f8fafc !important; /* رنگ خاکستری بسیار ملایم و مدرن مشابه تصویر */
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* رفع مشکل محدود بودن عرض محتوا و گسترش کامل به اندازه کل صفحه */
+.main-content-container, 
+.content-fixed-width,
+div[class*="max-w-"] {
+  max-width: 100% !important;
+}
+
+/* 🎯 اجبار تمام عناصر داخل سایدبار دارای data-role به استفاده از رنگ‌های dynamic */
+[data-role="ADMIN"],
+[data-role="TRAINER"],
+[data-role="MEMBER"] {
+  
+  color: var(--sidebar-text) !important;
+}
+

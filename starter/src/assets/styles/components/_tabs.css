@@ -1,0 +1,51 @@
+@layer components {
+  .tab-list {
+    @apply relative flex items-center overflow-x-auto overflow-y-hidden;
+  }
+
+  .tab-list-underline {
+    @apply border-b border-gray-200 dark:border-gray-700;
+  }
+
+  .tab-nav {
+    @apply font-semibold flex items-center justify-center text-gray-600 dark:text-gray-100 transition duration-200 ease-in-out cursor-pointer z-10;
+
+    &.tab-nav-disabled {
+      @apply opacity-60 cursor-not-allowed;
+    }
+  }
+
+  .tab-nav-underline {
+    @apply py-2.5 px-4 border-b-2 border-transparent;
+  }
+
+  .tab-nav-pill {
+    @apply py-2 px-4 mr-1 rtl:ml-1 rounded-full;
+  }
+
+  .tab-nav-icon {
+    @apply ltr:mr-1.5 rtl:ml-1.5 text-lg;
+  }
+
+  .tab-indicator {
+    @apply absolute bottom-0 ltr:left-0 rtl:right-0 bg-primary dark:bg-primary;
+
+    &.underline {
+      @apply h-0.5;
+    }
+
+    &.pill {
+      @apply h-full rounded-lg;
+    }
+  }
+
+  .tab-transparent-indicator {
+    .tab-indicator {
+      @apply bg-transparent dark:bg-transparent;
+    }
+  }
+
+  .tab-indicator-transition {
+    @apply transition duration-200 ease-in-out;
+  }
+}

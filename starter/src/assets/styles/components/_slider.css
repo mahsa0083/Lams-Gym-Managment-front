@@ -1,0 +1,67 @@
+@layer components {
+    .slider-tooltip {
+        @apply absolute text-xs whitespace-nowrap pointer-events-none select-none touch-none z-10 max-w-[250px] text-white rounded-md p-2 -top-11 left-0 rtl:-translate-x-1/4 bg-gray-800 dark:bg-black -translate-x-2/4;
+    }
+
+    .slider-thumb-wrapper {
+        @apply absolute;
+    }
+
+    .slider-thumb {
+        @apply absolute flex rounded-full h-4.5 w-4.5 -translate-x-2/4 -translate-y-2/4 cursor-pointer items-center justify-center z-[3] select-none touch-none outline-offset-2 left-0 border-3 border-solid top-[2.25px] border-primary bg-white;
+
+        &.dragging {
+            &:not(.disabled) {
+                @apply shadow-lg h-5 w-5;
+            }
+        }
+
+        &.disabled {
+            @apply cursor-not-allowed border-gray-300;
+        }
+    }
+
+    .slider-track-wrapper {
+        @apply flex items-center w-full cursor-pointer h-1 py-2.5;
+    }
+
+    .slider-track {
+        @apply h-1 relative w-full;
+
+        &:before {
+            @apply content-[''] bg-gray-100 absolute top-0 bottom-0 rounded-full inset-x-0 z-0;
+        }
+    }
+
+    .dark {
+        .slider-track {
+            &:before {
+                @apply bg-gray-700;
+            }
+        }
+    }
+
+    .slider-bar {
+        @apply absolute z-[1] bg-primary rounded-sm inset-y-0;
+
+        &.disabled {
+            @apply bg-gray-300 dark:bg-gray-500 cursor-not-allowed;
+        }
+    }
+
+    .slider-mark-wrapper {
+        @apply absolute z-[2] pointer-events-none -top-[3px] flex flex-col items-center gap-1 ltr:-translate-x-[50%] rtl:translate-x-[50%];
+    }
+
+    .slider-mark {
+        @apply h-2.5 w-2.5 bg-white pointer-events-none rounded-full border-3 border-gray-200 dark:border-gray-600;
+
+        &.slider-mark-filled {
+            @apply border-primary;
+        }
+    }
+
+    .slider-mark-label {
+        @apply whitespace-nowrap cursor-pointer select-none font-semibold;
+    } 
+}

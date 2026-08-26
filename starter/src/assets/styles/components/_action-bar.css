@@ -1,0 +1,9 @@
+@layer components {
+    .action-bar {
+        @apply fixed bottom-10 left-1/2 transform -translate-x-2/4 z-30;
+    }
+
+    .action-bar-content {
+        @apply p-4 rounded-lg border border-gray-200 dark:border-gray-600 shadow-xl bg-gray-100 dark:bg-gray-800;
+    }
+}

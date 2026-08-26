@@ -1,0 +1,35 @@
+@layer components {
+  .form-item {
+    @apply mb-7 relative;
+  
+    &.horizontal {
+      @apply flex flex-auto;
+    }
+  
+    &.vertical {
+      @apply flex flex-col;
+    }
+  
+    &.inline {
+      @apply md:inline-flex! mr-3 rtl:ml-3;
+    }
+  }
+  
+  .form-label {
+    @apply flex items-center gap-1 font-medium text-gray-900 dark:text-gray-100;
+  
+    &.invalid {
+      @apply text-error;
+    }
+  }
+  
+  .form-explain {
+    @apply text-xs text-error absolute font-medium;
+  }
+  
+  .form-container {
+    &.inline {
+      @apply md:flex! items-center;
+    }
+  }  
+}
