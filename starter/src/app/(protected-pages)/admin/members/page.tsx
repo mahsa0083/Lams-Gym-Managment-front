@@ -1,967 +1,1571 @@
-'use client'
+"use client";
 
-import React, { useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import {
-    HiOutlineUserAdd as UserPlus,
-    HiOutlinePencilAlt as Edit3,
-    HiOutlineTrash as Trash2,
-    HiOutlineClock as Clock,
-    HiOutlineUser as User,
-    HiOutlineX as X,
-    HiOutlineCheckCircle as CheckCircle2,
-    HiOutlineExclamationCircle as AlertCircle,
-    HiOutlineEye as Eye,
-    HiOutlinePhone as Phone,
-} from 'react-icons/hi'
-import { FaDumbbell as Dumbbell } from 'react-icons/fa'
-import { TbUser } from 'react-icons/tb'
-import DatePicker from '@/components/ui/DatePicker'
-// Import UI Components from Design System
-import Button from '@/components/ui/Button'
-import Dialog from '@/components/ui/Dialog'
-import Avatar from '@/components/ui/Avatar'
-import Select from '@/components/ui/Select'
-import Dropdown from '@/components/ui/Dropdown'
+  HiOutlineAcademicCap,
+  HiOutlineCalendar,
+  HiOutlineCheckCircle,
+  HiOutlineClock,
+  HiOutlineExclamationCircle,
+  HiOutlineEye,
+  HiOutlinePencilAlt,
+  HiOutlinePhone,
+  HiOutlineRefresh,
+  HiOutlineTrash,
+  HiOutlineUser,
+  HiOutlineUserAdd,
+  HiOutlineX,
+} from "react-icons/hi";
+
+import { FaDumbbell } from "react-icons/fa";
+
+import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
+
+import ApiService from "@/services/client/ApiService";
+
+import { DateObject } from "react-multi-date-picker";
+import persian from "react-date-object/calendars/persian";
+import persian_fa from "react-date-object/locales/persian_fa";
+import gregorian from "react-date-object/calendars/gregorian";
+import gregorian_en from "react-date-object/locales/gregorian_en";
+
+/* -------------------------------------------------------------------------- */
+/*                                    Types                                   */
+/* -------------------------------------------------------------------------- */
+
+type ApiGender = "Male" | "Female";
+
+type SubscriptionStatus =
+  | "PendingPayment"
+  | "Paid"
+  | "Active"
+  | "Expired"
+  | "Cancelled"
+  | string;
+
+type DayOfWeek =
+  | "Saturday"
+  | "Sunday"
+  | "Monday"
+  | "Tuesday"
+  | "Wednesday"
+  | "Thursday"
+  | "Friday"
+  | string;
 
 interface SelectOption {
-    value: string
-    label: string
+  value: string;
+  label: string;
 }
+
+/**
+ * GET /members
+ */
+interface MemberListItemResponse {
+  id: number;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  nationalCode: string;
+  gender: ApiGender;
+  birthDate: string;
+  joinDate: string;
+}
+
+/**
+ * POST /members
+ */
+interface CreateMemberRequest {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  nationalCode: string;
+  gender: ApiGender;
+  medicalNotes: string;
+  emergencyPhone: string;
+  birthDate: string;
+}
+
+/**
+ * POST /members response
+ */
+interface MemberCreatedResponse {
+  id: number;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  nationalCode: string;
+  gender: ApiGender;
+  birthDate: string;
+  joinDate: string;
+}
+
+/**
+ * GET /members/{id}
+ */
+interface MemberResponse {
+  id: number;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  nationalCode: string;
+  gender: ApiGender;
+  birthDate: string;
+  joinDate: string;
+}
+
+/**
+ * PUT /members/{id}
+ */
+interface UpdateMemberRequest extends CreateMemberRequest {
+  isActive: boolean;
+}
+
+/**
+ * GET /members/{id}/details -> subscriptions[]
+ */
+interface MemberSubscriptionResponse {
+  subscriptionId: number;
+  packageName: string;
+  trainerFullName: string;
+  startDate: string;
+  endDate: string;
+  totalSessions: number;
+  remainingSessions: number;
+  status: SubscriptionStatus;
+}
+
+/**
+ * GET /members/{id}/details -> courses[].schedules[]
+ */
+interface MemberScheduleResponse {
+  dayOfWeek: DayOfWeek;
+  startTime: string;
+  endTime: string;
+}
+
+/**
+ * GET /members/{id}/details -> courses[].attendances[]
+ */
+interface MemberAttendanceResponse {
+  attendanceDate: string;
+  isPresent: boolean;
+}
+
+/**
+ * GET /members/{id}/details -> courses[]
+ */
+interface MemberCourseResponse {
+  enrollmentId: number;
+  classId: number;
+  classTitle: string;
+  groupName: string;
+  sportName: string;
+  trainerFullName: string;
+  schedules: MemberScheduleResponse[];
+  attendances: MemberAttendanceResponse[];
+}
+
+/**
+ * GET /members/{id}/details
+ */
+interface MemberDetailsResponse extends MemberResponse {
+  medicalNotes: string | null;
+  emergencyPhone: string | null;
+  isActive: boolean;
+  subscriptions: MemberSubscriptionResponse[];
+  courses: MemberCourseResponse[];
+}
+
+/**
+ * دادهٔ مورد استفاده در لیست UI
+ */
+interface MemberTableItem {
+  id: number;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phoneNumber: string;
+  nationalCode: string;
+  gender: ApiGender;
+  birthDate: string;
+  joinDate: string;
+}
+
+/**
+ * دادهٔ فرم ثبت و ویرایش.
+ *
+ * birthDate در state به‌شکل شمسی نگهداری می‌شود،
+ * ولی قبل از ارسال به API به تاریخ میلادی تبدیل خواهد شد.
+ */
+interface MemberFormData {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  nationalCode: string;
+  gender: ApiGender;
+  birthDate: DateObject | null;
+  emergencyPhone: string;
+  medicalNotes: string;
+  isActive: boolean;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                  Constants                                 */
+/* -------------------------------------------------------------------------- */
+
+const MEMBERS_ENDPOINT = "/members";
 
 const GENDER_OPTIONS: SelectOption[] = [
-    { value: 'Male', label: 'مرد' },
-    { value: 'Female', label: 'زن' },
-]
+  {
+    value: "Male",
+    label: "مرد",
+  },
+  {
+    value: "Female",
+    label: "زن",
+  },
+];
 
-interface Member {
-    id: string
-    firstName: string
-    lastName: string
-    fullName: string
-    phoneNumber: string
-    nationalCode: string
-    gender: 'Male' | 'Female'
-    birthDate: string
-    emergencyPhone?: string
-    medicalNotes?: string
-    isActive?: boolean
-    className: string
-    sportType: string
-    trainerName: string
-    startTimeHour: string
-    startTimeMinute: string
-    endTimeHour: string
-    endTimeMinute: string
-    paymentStatus: 'PAID' | 'UNPAID' | 'PENDING'
-    joinDate?: string
-    remainingSessions?: number
-}
+const INITIAL_FORM_DATA: MemberFormData = {
+  firstName: "",
+  lastName: "",
+  phoneNumber: "",
+  nationalCode: "",
+  gender: "Male",
+  birthDate: null,
+  emergencyPhone: "",
+  medicalNotes: "",
+  isActive: true,
+};
 
-interface MemberFormData {
-    firstName: string
-    lastName: string
-    phoneNumber: string
-    nationalCode: string
-    gender: 'Male' | 'Female'
-    birthDate: string
-    emergencyPhone: string
-    medicalNotes: string
-    isActive: boolean
-    className: string
-    sportType: string
-    trainerName: string
-    startTimeHour: string
-    startTimeMinute: string
-    endTimeHour: string
-    endTimeMinute: string
-    paymentStatus: 'PAID' | 'UNPAID' | 'PENDING'
-    joinDate: string
-    remainingSessions: number
-}
+const DAY_OF_WEEK_LABELS: Record<string, string> = {
+  Saturday: "شنبه",
+  Sunday: "یکشنبه",
+  Monday: "دوشنبه",
+  Tuesday: "سه‌شنبه",
+  Wednesday: "چهارشنبه",
+  Thursday: "پنج‌شنبه",
+  Friday: "جمعه",
+};
 
-interface SelectOption {
-    value: string
-    label: string
-}
+/* -------------------------------------------------------------------------- */
+/*                                  Helpers                                   */
+/* -------------------------------------------------------------------------- */
 
-const SPORT_OPTIONS: SelectOption[] = [
-    { value: 'ALL', label: 'همه رشته‌ها' },
-    { value: 'بدنسازی', label: 'بدنسازی' },
-    { value: 'فیتنس', label: 'فیتنس' },
-    { value: 'یوگا', label: 'یوگا' },
-    { value: 'CrossFit', label: 'کراس‌فیت' },
-]
+/**
+ * تبدیل مقدار DatePicker شمسی به تاریخ میلادی مورد نیاز API.
+ *
+ * مثال:
+ * 1403/02/01 -> 2024-04-20
+ */
+const toGregorianDateString = (
+  jalaliDate: DateObject | null
+): string => {
+  if (!jalaliDate) {
+    return "";
+  }
 
-export default function MembersManagement() {
-    const [members, setMembers] = useState<Member[]>([
-        {
-            id: '1',
-            firstName: 'علی',
-            lastName: 'محمدی',
-            fullName: 'علی محمدی',
-            phoneNumber: '09123456789',
-            nationalCode: '0012345678',
-            gender: 'Male',
-            birthDate: '1375-01-01',
-            emergencyPhone: '09129876543',
-            medicalNotes: 'ندارد',
-            isActive: true,
-            className: 'بدنسازی سانس A',
-            sportType: 'بدنسازی',
-            trainerName: 'استاد رضایی',
-            startTimeHour: '18',
-            startTimeMinute: '00',
-            endTimeHour: '19',
-            endTimeMinute: '30',
-            paymentStatus: 'PAID',
-            joinDate: '1402/10/12',
-            remainingSessions: 8,
-        },
-        {
-            id: '2',
-            firstName: 'سارا',
-            lastName: 'احمدی',
-            fullName: 'سارا احمدی',
-            phoneNumber: '09198765432',
-            nationalCode: '0098765432',
-            gender: 'Female',
-            birthDate: '1378-05-12',
-            emergencyPhone: '',
-            medicalNotes: '',
-            isActive: true,
-            className: 'یوگا پیشرفته',
-            sportType: 'یوگا',
-            trainerName: 'خانم کاظمی',
-            startTimeHour: '10',
-            startTimeMinute: '00',
-            endTimeHour: '11',
-            endTimeMinute: '30',
-            paymentStatus: 'UNPAID',
-            joinDate: '1402/11/05',
-            remainingSessions: 2,
-        },
-    ])
+  return new DateObject(jalaliDate)
+    .convert(gregorian, gregorian_en)
+    .format("YYYY-MM-DD");
+};
 
-    const [searchTerm, setSearchTerm] = useState('')
-    const [selectedSport, setSelectedSport] = useState<SelectOption | null>(
-        SPORT_OPTIONS[0],
-    )
-    const [searchOptions, setSearchOptions] = useState<SelectOption[]>([])
-    const [isPending, startTransition] = useTransition()
+/**
+ * تبدیل تاریخ میلادی دریافتی از API به مقدار قابل استفاده
+ * در DatePicker شمسی، برای حالت ویرایش.
+ *
+ * مثال:
+ * 2024-04-20 -> 1403/02/01
+ */
+const toJalaliDateObject = (
+  gregorianDateString?: string | null
+): DateObject | null => {
+  if (!gregorianDateString) {
+    return null;
+  }
 
-    const [isModalOpen, setIsModalOpen] = useState(false)
-    const [editingMember, setEditingMember] = useState<Member | null>(null)
-    const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
-    const [selectedMemberDetails, setSelectedMemberDetails] =
-        useState<Member | null>(null)
+  return new DateObject({
+    date: gregorianDateString,
+    format: "YYYY-MM-DD",
+    calendar: gregorian,
+    locale: gregorian_en,
+  }).convert(persian, persian_fa);
+};
 
-    const [deleteDialog, setDeleteDialog] = useState<{
-        isOpen: boolean
-        memberId: string | null
-    }>({
-        isOpen: false,
-        memberId: null,
-    })
+const formatDate = (date?: string | null): string => {
+  if (!date) {
+    return "ثبت نشده";
+  }
 
-    const [formData, setFormData] = useState<MemberFormData>({
-        firstName: '',
-        lastName: '',
-        phoneNumber: '',
-        nationalCode: '',
-        gender: 'Male',
-        birthDate: '2000-01-01',
-        emergencyPhone: '',
-        medicalNotes: '',
-        isActive: true,
-        className: '',
-        sportType: 'بدنسازی',
-        trainerName: '',
-        startTimeHour: '18',
-        startTimeMinute: '00',
-        endTimeHour: '19',
-        endTimeMinute: '30',
-        paymentStatus: 'PAID',
-        joinDate: '1402/12/01',
-        remainingSessions: 10,
-    })
+  try {
+    return new Intl.DateTimeFormat("fa-IR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(new Date(date));
+  } catch {
+    return date;
+  }
+};
 
-    const handleSearchInputChange = (value: string) => {
-        const trimmed = value.trim().toLowerCase()
-        setSearchTerm(value)
+const formatNumber = (value: number): string => {
+  return new Intl.NumberFormat("fa-IR").format(value);
+};
 
-        if (!trimmed) {
-            setSearchOptions([])
-            return
+const getGenderLabel = (gender: ApiGender): string => {
+  return gender === "Female" ? "زن" : "مرد";
+};
+
+const getDayOfWeekLabel = (day: DayOfWeek): string => {
+  return DAY_OF_WEEK_LABELS[day] ?? day;
+};
+
+const mapMemberToTableItem = (
+  member: MemberListItemResponse
+): MemberTableItem => {
+  return {
+    id: member.id,
+    firstName: member.firstName ?? "",
+    lastName: member.lastName ?? "",
+    fullName: `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim(),
+    phoneNumber: member.phoneNumber ?? "",
+    nationalCode: member.nationalCode ?? "",
+    gender: member.gender,
+    birthDate: member.birthDate,
+    joinDate: member.joinDate,
+  };
+};
+
+const mapFormToCreateRequest = (
+  formData: MemberFormData
+): CreateMemberRequest => {
+  const gregorianBirthDate = toGregorianDateString(formData.birthDate);
+
+  if (!gregorianBirthDate) {
+    throw new Error("انتخاب تاریخ تولد الزامی است.");
+  }
+
+  return {
+    firstName: formData.firstName.trim(),
+    lastName: formData.lastName.trim(),
+    phoneNumber: formData.phoneNumber.trim(),
+    nationalCode: formData.nationalCode.trim(),
+    gender: formData.gender,
+    birthDate: gregorianBirthDate,
+    emergencyPhone: formData.emergencyPhone.trim(),
+    medicalNotes: formData.medicalNotes.trim(),
+  };
+};
+
+const getSubscriptionStatus = (status: SubscriptionStatus) => {
+  switch (status) {
+    case "Paid":
+    case "Active":
+      return {
+        label: "فعال / پرداخت شده",
+        className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+      };
+
+    case "PendingPayment":
+      return {
+        label: "در انتظار پرداخت",
+        className: "border-amber-200 bg-amber-50 text-amber-700",
+      };
+
+    case "Expired":
+      return {
+        label: "منقضی شده",
+        className: "border-rose-200 bg-rose-50 text-rose-700",
+      };
+
+    case "Cancelled":
+      return {
+        label: "لغو شده",
+        className: "border-rose-200 bg-rose-50 text-rose-700",
+      };
+
+    default:
+      return {
+        label: status || "نامشخص",
+        className:
+          "border-[var(--primary-mild)]/30 bg-[var(--primary-subtle)] text-[var(--primary)]",
+      };
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/*                               Main Component                               */
+/* -------------------------------------------------------------------------- */
+
+export default function MembersManagementPage() {
+  const [members, setMembers] = useState<MemberTableItem[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
+  const [formData, setFormData] =
+    useState<MemberFormData>(INITIAL_FORM_DATA);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [memberDetails, setMemberDetails] =
+    useState<MemberDetailsResponse | null>(null);
+
+  const [deleteMemberId, setDeleteMemberId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [errorDialog, setErrorDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+  });
+
+  /* ------------------------------------------------------------------------ */
+  /*                              Error handling                              */
+  /* ------------------------------------------------------------------------ */
+
+  const showError = (title: string, error: unknown) => {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "عملیات موردنظر با خطا مواجه شد. لطفاً دوباره تلاش کنید.";
+
+    setErrorDialog({
+      isOpen: true,
+      title,
+      message,
+    });
+  };
+
+  const closeErrorDialog = () => {
+    setErrorDialog((previous) => ({
+      ...previous,
+      isOpen: false,
+    }));
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                          GET /members - List                             */
+  /* ------------------------------------------------------------------------ */
+
+  const fetchMembers = useCallback(async () => {
+    try {
+      setIsLoadingMembers(true);
+
+      const response =
+        await ApiService.fetchDataWithAxios<MemberListItemResponse[]>({
+          url: MEMBERS_ENDPOINT,
+          method: "get",
+        });
+
+      setMembers(Array.isArray(response) ? response.map(mapMemberToTableItem) : []);
+    } catch (error) {
+      setMembers([]);
+      showError("خطا در دریافت ورزشکاران", error);
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMembers();
+  }, [fetchMembers]);
+
+  /* ------------------------------------------------------------------------ */
+  /*                                  Search                                  */
+  /* ------------------------------------------------------------------------ */
+
+  const filteredMembers = useMemo(() => {
+    const searchValue = searchTerm.trim().toLowerCase();
+
+    if (!searchValue) {
+      return members;
+    }
+
+    return members.filter((member) => {
+      return (
+        member.fullName.toLowerCase().includes(searchValue) ||
+        member.phoneNumber.includes(searchValue) ||
+        member.nationalCode.includes(searchValue)
+      );
+    });
+  }, [members, searchTerm]);
+
+  /* ------------------------------------------------------------------------ */
+  /*                          Create member modal                             */
+  /* ------------------------------------------------------------------------ */
+
+  const openCreateModal = () => {
+    setEditingMemberId(null);
+    setFormData(INITIAL_FORM_DATA);
+    setIsFormModalOpen(true);
+  };
+
+  const closeFormModal = () => {
+    if (isSaving) {
+      return;
+    }
+
+    setIsFormModalOpen(false);
+    setEditingMemberId(null);
+    setFormData(INITIAL_FORM_DATA);
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                    GET member + details for editing                      */
+  /* ------------------------------------------------------------------------ */
+
+  const openEditModal = async (memberId: number) => {
+    try {
+      setIsLoadingDetails(true);
+
+      const [member, details] = await Promise.all([
+        ApiService.fetchDataWithAxios<MemberResponse>({
+          url: `${MEMBERS_ENDPOINT}/${memberId}`,
+          method: "get",
+        }),
+
+        ApiService.fetchDataWithAxios<MemberDetailsResponse>({
+          url: `${MEMBERS_ENDPOINT}/${memberId}/details`,
+          method: "get",
+        }),
+      ]);
+
+      setEditingMemberId(memberId);
+
+      setFormData({
+        firstName: member.firstName ?? "",
+        lastName: member.lastName ?? "",
+        phoneNumber: member.phoneNumber ?? "",
+        nationalCode: member.nationalCode ?? "",
+        gender: member.gender ?? "Male",
+
+        // تاریخ میلادی API => تاریخ شمسی DatePicker
+        birthDate: toJalaliDateObject(member.birthDate),
+
+        emergencyPhone: details.emergencyPhone ?? "",
+        medicalNotes: details.medicalNotes ?? "",
+        isActive: details.isActive ?? true,
+      });
+
+      setIsFormModalOpen(true);
+    } catch (error) {
+      showError("خطا در دریافت اطلاعات ورزشکار", error);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                            POST / PUT - Save                             */
+  /* ------------------------------------------------------------------------ */
+
+  const handleSaveMember = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    try {
+      setIsSaving(true);
+
+      const createPayload = mapFormToCreateRequest(formData);
+
+      if (editingMemberId === null) {
+        await ApiService.fetchDataWithAxios<
+          MemberCreatedResponse,
+          CreateMemberRequest
+        >({
+          url: MEMBERS_ENDPOINT,
+          method: "post",
+          data: createPayload,
+        });
+      } else {
+        const updatePayload: UpdateMemberRequest = {
+          ...createPayload,
+          isActive: formData.isActive,
+        };
+
+        const isUpdated = await ApiService.fetchDataWithAxios<
+          boolean,
+          UpdateMemberRequest
+        >({
+          url: `${MEMBERS_ENDPOINT}/${editingMemberId}`,
+          method: "put",
+          data: updatePayload,
+        });
+
+        if (!isUpdated) {
+          throw new Error("ویرایش ورزشکار توسط سرور تأیید نشد.");
         }
+      }
 
-        startTransition(() => {
-            const matches = members
-                .filter(
-                    (m) =>
-                        m.fullName.toLowerCase().includes(trimmed) ||
-                        m.className.toLowerCase().includes(trimmed),
-                )
-                .map((m) => ({
-                    value: m.fullName,
-                    label: `${m.fullName} (${m.className})`,
-                }))
-            setSearchOptions(matches)
-        })
+      await fetchMembers();
+      closeFormModal();
+    } catch (error) {
+      showError(
+        editingMemberId === null
+          ? "خطا در ثبت ورزشکار"
+          : "خطا در ویرایش ورزشکار",
+        error
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                       GET /members/{id}/details                          */
+  /* ------------------------------------------------------------------------ */
+
+  const openDetailsModal = async (memberId: number) => {
+    try {
+      setIsLoadingDetails(true);
+      setMemberDetails(null);
+      setIsDetailsModalOpen(true);
+
+      const response =
+        await ApiService.fetchDataWithAxios<MemberDetailsResponse>({
+          url: `${MEMBERS_ENDPOINT}/${memberId}/details`,
+          method: "get",
+        });
+
+      setMemberDetails(response);
+    } catch (error) {
+      setIsDetailsModalOpen(false);
+      showError("خطا در دریافت جزئیات ورزشکار", error);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  const closeDetailsModal = () => {
+    setIsDetailsModalOpen(false);
+    setMemberDetails(null);
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                        DELETE /members/{id}                              */
+  /* ------------------------------------------------------------------------ */
+
+  const confirmDeactivateMember = async () => {
+    if (deleteMemberId === null) {
+      return;
     }
 
-    const filteredMembers = members.filter((member) => {
-        const matchesSearch =
-            !searchTerm ||
-            member.fullName
-                .toLowerCase()
-                .includes(searchTerm.toLowerCase().trim()) ||
-            member.className
-                .toLowerCase()
-                .includes(searchTerm.toLowerCase().trim())
-        const matchesSport =
-            !selectedSport ||
-            selectedSport.value === 'ALL' ||
-            member.sportType === selectedSport.value
-        return matchesSearch && matchesSport
-    })
+    try {
+      setIsDeleting(true);
 
-    const handleOpenCreateModal = () => {
-        setEditingMember(null)
-        setFormData({
-            firstName: '',
-            lastName: '',
-            phoneNumber: '',
-            nationalCode: '',
-            gender: 'Male',
-            birthDate: '2000-01-01',
-            emergencyPhone: '',
-            medicalNotes: '',
-            isActive: true,
-            className: '',
-            sportType: 'بدنسازی',
-            trainerName: '',
-            startTimeHour: '18',
-            startTimeMinute: '00',
-            endTimeHour: '19',
-            endTimeMinute: '30',
-            paymentStatus: 'PAID',
-            joinDate: '1402/12/01',
-            remainingSessions: 10,
-        })
-        setIsModalOpen(true)
+      const isDeactivated =
+        await ApiService.fetchDataWithAxios<boolean>({
+          url: `${MEMBERS_ENDPOINT}/${deleteMemberId}`,
+          method: "delete",
+        });
+
+      if (!isDeactivated) {
+        throw new Error("غیرفعال‌سازی ورزشکار توسط سرور تأیید نشد.");
+      }
+
+      setMembers((currentMembers) =>
+        currentMembers.filter((member) => member.id !== deleteMemberId)
+      );
+
+      setDeleteMemberId(null);
+    } catch (error) {
+      showError("خطا در غیرفعال‌سازی ورزشکار", error);
+    } finally {
+      setIsDeleting(false);
     }
+  };
 
-    const handleOpenEditModal = (member: Member) => {
-        setEditingMember(member)
-        setFormData({
-            firstName: member.firstName || member.fullName.split(' ')[0] || '',
-            lastName:
-                member.lastName ||
-                member.fullName.split(' ').slice(1).join(' ') ||
-                '',
-            phoneNumber: member.phoneNumber || '',
-            nationalCode: member.nationalCode || '',
-            gender: member.gender || 'Male',
-            birthDate: member.birthDate || '2000-01-01',
-            emergencyPhone: member.emergencyPhone || '',
-            medicalNotes: member.medicalNotes || '',
-            isActive: member.isActive ?? true,
-            className: member.className,
-            sportType: member.sportType,
-            trainerName: member.trainerName,
-            startTimeHour: member.startTimeHour || '18',
-            startTimeMinute: member.startTimeMinute || '00',
-            endTimeHour: member.endTimeHour || '19',
-            endTimeMinute: member.endTimeMinute || '30',
-            paymentStatus: member.paymentStatus,
-            joinDate: member.joinDate || '',
-            remainingSessions: member.remainingSessions || 10,
-        })
-        setIsModalOpen(true)
-    }
+  /* ------------------------------------------------------------------------ */
+  /*                                    UI                                    */
+  /* ------------------------------------------------------------------------ */
 
-    const handleOpenDetailsModal = (member: Member) => {
-        setSelectedMemberDetails(member)
-        setIsDetailsModalOpen(true)
-    }
+  return (
+    <div className="min-h-screen p-5 md:p-8" dir="rtl">
+      {/* Header */}
+      <div className="mb-7 flex flex-col gap-4 rounded-2xl border border-[var(--primary-mild)]/30 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-[var(--primary)] md:text-3xl">
+            مدیریت ورزشکاران
+          </h1>
 
-    const handleSave = (e: React.FormEvent) => {
-        e.preventDefault()
-        const fullN = `${formData.firstName} ${formData.lastName}`
-        if (editingMember) {
-            setMembers(
-                members.map((m) =>
-                    m.id === editingMember.id
-                        ? { ...m, ...formData, fullName: fullN }
-                        : m,
-                ),
-            )
-        } else {
-            const newMember: Member = {
-                ...formData,
-                id: Date.now().toString(),
-                fullName: fullN,
-            }
-            setMembers([...members, newMember])
-        }
-        setIsModalOpen(false)
-    }
-
-    const handleOpenDeleteDialog = (id: string) => {
-        setDeleteDialog({ isOpen: true, memberId: id })
-    }
-
-    const handleConfirmDelete = () => {
-        if (deleteDialog.memberId) {
-            setMembers(members.filter((m) => m.id !== deleteDialog.memberId))
-        }
-        setDeleteDialog({ isOpen: false, memberId: null })
-    }
-
-    const renderPaymentBadge = (status: Member['paymentStatus']) => {
-        switch (status) {
-            case 'PAID':
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
-                        <span>تسویه شده</span>
-                    </span>
-                )
-            case 'UNPAID':
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-[var(--text-war)] border border-rose-200 shadow-xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-war)] animate-pulse"></span>
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-[var(--text-war)]" />
-                        <span>بدهکار</span>
-                    </span>
-                )
-            case 'PENDING':
-                return (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                        <Clock className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-                        <span>در انتظار بررسی</span>
-                    </span>
-                )
-        }
-    }
-
-    return (
-        <div
-            className="p-6 md:p-8 min-h-screen  font-semibold dir-rtl "
-            data-role="ADMIN"
-            style={{ fontFamily: 'var(--font-family, inherit)' }}
-        >
-            {/* هدر اصلی */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 bg-white p-6 rounded-2xl shadow-sm border border-[var(--primary-mild)]/30 mb-8">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-[var(--primary)] tracking-tight">
-                        مدیریت ورزشکاران
-                    </h1>
-                    <p className="text-sm text-[var(--primary-deep)] mt-1.5 font-normal">
-                        مدیریت پیشرفته اعضا، بررسی وضعیت شهریه، کلاس‌ها و مربیان
-                        مجموعه
-                    </p>
-                </div>
-
-                <Button
-                    variant="solid"
-                    onClick={handleOpenCreateModal}
-                    style={{
-                        backgroundColor: 'var(--primary)',
-                        color: 'var(--sidebar-text)',
-                    }}
-                    className="inline-flex items-center justify-center gap-2.5 hover:opacity-95 px-5 py-3 rounded-2xl font-medium transition-all duration-200 shadow-lg shadow-[var(--primary)]/20 active:scale-[0.98] shrink-0"
-                >
-                    <UserPlus className="w-5 h-5" />
-                    <span>افزودن ورزشکار جدید</span>
-                </Button>
-            </div>
-
-            {/* نوار فیلتر و جستجو */}
-            <div className="bg-white/90 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-[var(--primary-mild)]/20 shadow-sm mb-6 flex flex-col md:flex-row gap-4 justify-between items-center relative z-40">
-                <div className="w-full md:w-96 relative z-50">
-                    <Select<SelectOption>
-                        isSearchable
-                        isLoading={isPending}
-                        placeholder="جستجوی سریع نام یا عنوان کلاس..."
-                        noOptionsMessage={() =>
-                            isPending ? 'در حال جستجو...' : 'ورزشکاری یافت نشد'
-                        }
-                        options={searchOptions}
-                        onInputChange={handleSearchInputChange}
-                        onChange={(opt) => setSearchTerm(opt?.value || '')}
-                        className="w-full"
-                    />
-                </div>
-
-                <div className="w-full md:w-72 relative z-50">
-                    <Select<SelectOption>
-                        placeholder="فیلتر بر اساس رشته ورزشی"
-                        options={SPORT_OPTIONS}
-                        value={selectedSport}
-                        onChange={(option) =>
-                            setSelectedSport(option as SelectOption)
-                        }
-                        className="w-full"
-                    />
-                </div>
-            </div>
-
-            {/* لیست اعضا */}
-            <div className="space-y-4">
-                {filteredMembers.map((member) => (
-                    <div
-                        key={member.id}
-                        className="bg-white rounded-2xl border border-[var(--primary-mild)]/20 p-5 shadow-sm hover:shadow-s
-                        hover:shadow-[#4B5694] hover:-translate-y-0.5 hover:border-[var(--primary)] transition-all duration-300
-                         flex flex-col lg:flex-row lg:items-center justify-between gap-5 group"
-                    >
-                        <div className="flex items-center gap-4 min-w-[260px]">
-                            <Avatar
-                                shape="round"
-                                icon={
-                                    <TbUser className="w-6 h-6 text-[var(--primary)]" />
-                                }
-                                className="bg-[var(--primary-subtle)] text-[var(--primary)] border border-[var(--primary-mild)]/30 shadow-inner w-12 h-12 flex items-center justify-center rounded-2xl transition-transform group-hover:scale-105"
-                            />
-                            <div className="space-y-1.5">
-                                <div>
-                                    {renderPaymentBadge(member.paymentStatus)}
-                                </div>
-                                <button
-                                    onClick={() =>
-                                        handleOpenDetailsModal(member)
-                                    }
-                                    className="font-bold text-[var(--primary)] text-base hover:text-[var(--primary-deep)] transition-colors text-right block"
-                                >
-                                    {member.fullName}
-                                </button>
-                                <div className="flex items-center gap-2">
-                                    <span className="inline-block px-2.5 py-0.5 rounded-md bg-[var(--primary-subtle)] text-[var(--primary)] text-xs font-medium">
-                                        {member.sportType}
-                                    </span>
-                                    {member.phoneNumber && (
-                                        <span
-                                            className="text-xs text-[var(--primary-deep)] flex items-center gap-1"
-                                            dir="ltr"
-                                        >
-                                            <Phone className="w-3 h-3 text-[var(--primary-deep)]" />
-                                            {member.phoneNumber}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* بخش باکس‌های اطلاعات داخل کارت (بزرگ‌تر، عریض‌تر و وسط‌چین) */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1 max-w-3xl">
-                            <div className="flex items-center justify-center gap-2.5 bg-[var(--primary-subtle)]/60 px-4 py-2.5 rounded-xl border border-[var(--primary-mild)]/25 shadow-2xs text-center">
-                                <div className="p-1.5 rounded-lg bg-white text-[var(--primary)] shrink-0 shadow-2xs">
-                                    <Dumbbell className="w-4 h-4" />
-                                </div>
-                                <div className="min-w-0 leading-tight flex flex-col items-center justify-center">
-                                    <span className="text-[var(--primary-deep)] text-[11px] font-medium mb-0.5">
-                                        کلاس ثبت‌نامی
-                                    </span>
-                                    <span
-                                        className="font-bold text-[var(--primary)] text-xs sm:text-sm truncate max-w-full block"
-                                        title={member.className}
-                                    >
-                                        {member.className}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-center gap-2.5 bg-[var(--primary-subtle)]/60 px-4 py-2.5 rounded-xl border border-[var(--primary-mild)]/25 shadow-2xs text-center">
-                                <div className="p-1.5 rounded-lg bg-white text-[var(--primary)] shrink-0 shadow-2xs">
-                                    <User className="w-4 h-4" />
-                                </div>
-                                <div className="min-w-0 leading-tight flex flex-col items-center justify-center">
-                                    <span className="text-[var(--primary-deep)] text-[11px] font-medium mb-0.5">
-                                        مربی
-                                    </span>
-                                    <span
-                                        className="font-bold text-[var(--primary)] text-xs sm:text-sm truncate max-w-full block"
-                                        title={member.trainerName}
-                                    >
-                                        {member.trainerName}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-center gap-2.5 bg-[var(--primary-subtle)]/60 px-4 py-2.5 rounded-xl border border-[var(--primary-mild)]/25 shadow-2xs text-center">
-                                <div className="p-1.5 rounded-lg bg-white text-[var(--primary)] shrink-0 shadow-2xs">
-                                    <Clock className="w-4 h-4" />
-                                </div>
-                                <div className="min-w-0 leading-tight flex flex-col items-center justify-center">
-                                    <span className="text-[var(--primary-deep)] text-[11px] font-medium mb-0.5">
-                                        ساعت سانس
-                                    </span>
-                                    <span
-                                        className="font-bold text-[var(--primary)] text-xs sm:text-sm truncate max-w-full block"
-                                        dir="ltr"
-                                    >
-                                        {member.startTimeHour}:
-                                        {member.startTimeMinute} تا{' '}
-                                        {member.endTimeHour}:
-                                        {member.endTimeMinute}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-end gap-2 shrink-0 bg-[var(--primary-subtle)]/60 p-1.5 rounded-xl border border-[var(--primary-mild)]/20">
-                            <button
-                                onClick={() => handleOpenDetailsModal(member)}
-                                className="p-2 text-[var(--primary-deep)] hover:text-[var(--primary)] hover:bg-white rounded-lg transition-all"
-                                title="مشاهده جزئیات کامل"
-                            >
-                                <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => handleOpenEditModal(member)}
-                                className="p-2 text-[var(--primary)] hover:text-[var(--primary-deep)] hover:bg-white rounded-lg transition-all"
-                                title="ویرایش اطلاعات"
-                            >
-                                <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() =>
-                                    handleOpenDeleteDialog(member.id)
-                                }
-                                className="p-2 text-[var(--text-war)] hover:bg-rose-50 rounded-lg transition-all"
-                                title="حذف ورزشکار"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* دیالوگ حذف ورزشکار */}
-            <Dialog
-                isOpen={deleteDialog.isOpen}
-                onClose={() =>
-                    setDeleteDialog({ isOpen: false, memberId: null })
-                }
-                shouldCloseOnOverlayClick={true}
-                shouldCloseOnEsc={true}
-            >
-                <div className="p-2">
-                    <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[var(--text-war)] flex items-center justify-center mb-4 shadow-xs">
-                        <AlertCircle className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-lg text-[var(--primary)] mb-2">
-                        تأیید حذف ورزشکار
-                    </h3>
-                    <p className="text-sm text-[var(--primary-deep)] mb-6 leading-relaxed">
-                        آیا از حذف این ورزشکار از لیست باشگاه اطمینان دارید؟
-                        تمام سوابق و وضعیت مالی مرتبط با این حساب پاک خواهند شد
-                        و این عملیات غیرقابل بازگشت است.
-                    </p>
-                    <div className="flex justify-end gap-3">
-                        <Button
-                            variant="subtle"
-                            onClick={() =>
-                                setDeleteDialog({
-                                    isOpen: false,
-                                    memberId: null,
-                                })
-                            }
-                            className="px-5 py-2.5 rounded-xl font-medium text-[var(--primary-deep)] hover:bg-[var(--primary-subtle)]"
-                        >
-                            انصراف
-                        </Button>
-                        <Button
-                            variant="solid"
-                            style={{
-                                backgroundColor: 'var(--text-war)',
-                                color: '#fff',
-                            }}
-                            className="px-5 py-2.5 rounded-xl font-medium shadow-md hover:opacity-90"
-                            onClick={handleConfirmDelete}
-                        >
-                            تأیید و حذف
-                        </Button>
-                    </div>
-                </div>
-            </Dialog>
-
-            {/* مودال جزئیات کامل ورزشکار */}
-            {isDetailsModalOpen && selectedMemberDetails && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-3xl w-full max-w-lg border border-[var(--primary-mild)]/30 shadow-2xl overflow-hidden">
-                        <div className="bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] p-6 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-[var(--sidebar-text)] font-bold">
-                                    {selectedMemberDetails.fullName.charAt(0)}
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-lg text-[var(--sidebar-text)]">
-                                        {selectedMemberDetails.fullName}
-                                    </h3>
-                                    <p className="text-xs text-[var(--primary-mild)]">
-                                        کارت عضویت فعال باشگاه
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setIsDetailsModalOpen(false)}
-                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-[var(--sidebar-text)] transition-colors"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        <div className="p-6 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-[var(--primary-subtle)]/40 p-4 rounded-2xl border border-[var(--primary-mild)]/20">
-                                    <span className="text-xs text-[var(--primary-deep)] block mb-1">
-                                        رشته ورزشی
-                                    </span>
-                                    <span className="font-bold text-[var(--primary)] text-sm">
-                                        {selectedMemberDetails.sportType}
-                                    </span>
-                                </div>
-                                <div className="bg-[var(--primary-subtle)]/40 p-4 rounded-2xl border border-[var(--primary-mild)]/20">
-                                    <span className="text-xs text-[var(--primary-deep)] block mb-1">
-                                        شماره تماس
-                                    </span>
-                                    <span
-                                        className="font-bold text-[var(--primary)] text-sm"
-                                        dir="ltr"
-                                    >
-                                        {selectedMemberDetails.phoneNumber ||
-                                            'ثبت نشده'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="bg-[var(--primary-subtle)]/40 p-4 rounded-2xl border border-[var(--primary-mild)]/20 space-y-3">
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-[var(--primary-deep)]">
-                                        کد ملی:
-                                    </span>
-                                    <span
-                                        className="font-semibold text-[var(--primary)]"
-                                        dir="ltr"
-                                    >
-                                        {selectedMemberDetails.nationalCode ||
-                                            'ثبت نشده'}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-[var(--primary-deep)]">
-                                        عنوان کلاس:
-                                    </span>
-                                    <span className="font-semibold text-[var(--primary)]">
-                                        {selectedMemberDetails.className}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-[var(--primary-deep)]">
-                                        مربی مسئول:
-                                    </span>
-                                    <span className="font-semibold text-[var(--primary)]">
-                                        {selectedMemberDetails.trainerName}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-[var(--primary-deep)]">
-                                        تلفن اضطراری:
-                                    </span>
-                                    <span
-                                        className="font-semibold text-[var(--primary)]"
-                                        dir="ltr"
-                                    >
-                                        {selectedMemberDetails.emergencyPhone ||
-                                            'ندارد'}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-[var(--primary-deep)]">
-                                        نکات پزشکی:
-                                    </span>
-                                    <span className="font-semibold text-[var(--primary)]">
-                                        {selectedMemberDetails.medicalNotes ||
-                                            'ندارد'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-between items-center pt-2">
-                                <div>
-                                    <span className="text-xs text-[var(--primary-deep)] block mb-1">
-                                        وضعیت حساب مالی
-                                    </span>
-                                    {renderPaymentBadge(
-                                        selectedMemberDetails.paymentStatus,
-                                    )}
-                                </div>
-                                <Button
-                                    variant="solid"
-                                    style={{
-                                        backgroundColor: 'var(--primary)',
-                                        color: 'var(--sidebar-text)',
-                                    }}
-                                    onClick={() => {
-                                        setIsDetailsModalOpen(false)
-                                        handleOpenEditModal(
-                                            selectedMemberDetails,
-                                        )
-                                    }}
-                                    className="px-5 py-2.5 rounded-xl font-medium text-sm hover:opacity-90"
-                                >
-                                    ویرایش اطلاعات
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* مودال افزودن / ویرایش */}
-
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 dir-rtl">
-                    {/* دیو اصلی با قابلیت اسکرول و مخفی‌سازی scrollbar */}
-                    <div className="bg-white rounded-2xl w-full max-w-lg border border-[var(--primary-mild)]/30 shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                        <div className="bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] p-4 flex items-center justify-between">
-                            <h2 className="font-bold text-white">
-                                {editingMember
-                                    ? 'ویرایش اطلاعات ورزشکار'
-                                    : 'افزودن ورزشکار جدید'}
-                            </h2>
-                            <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="text-[var(--sidebar-text)]/80 hover:text-[var(--sidebar-text)]"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <form
-                            onSubmit={handleSave}
-                            className="p-5 space-y-4 text-xs"
-                        >
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block font-semibold text-[var(--primary)] mb-1">
-                                        نام
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.firstName}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                firstName: e.target.value,
-                                            })
-                                        }
-                                        className="w-full px-3 py-2 border border-[var(--primary-mild)]/40 rounded-xl text-sm text-[var(--primary)] focus:outline-none focus:border-[var(--primary)]"
-                                        placeholder="مثال: علی"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block font-semibold text-[var(--primary)] mb-1">
-                                        نام خانوادگی
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.lastName}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                lastName: e.target.value,
-                                            })
-                                        }
-                                        className="w-full px-3 py-2 border border-[var(--primary-mild)]/40 rounded-xl text-sm text-[var(--primary)] focus:outline-none focus:border-[var(--primary)]"
-                                        placeholder="مثال: رضایی"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block font-semibold text-[var(--primary)] mb-1">
-                                        شماره تماس
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        maxLength={11}
-                                        value={formData.phoneNumber}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                phoneNumber:
-                                                    e.target.value.replace(
-                                                        /\D/g,
-                                                        '',
-                                                    ),
-                                            })
-                                        }
-                                        className="w-full px-3 py-2 border border-[var(--primary-mild)]/40 rounded-xl text-sm text-[var(--primary)] focus:outline-none focus:border-[var(--primary)]"
-                                        placeholder="09123456789"
-                                        dir="ltr"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block font-semibold text-[var(--primary)] mb-1">
-                                        کد ملی
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        maxLength={10}
-                                        value={formData.nationalCode}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                nationalCode:
-                                                    e.target.value.replace(
-                                                        /\D/g,
-                                                        '',
-                                                    ),
-                                            })
-                                        }
-                                        className="w-full px-3 py-2 border border-[var(--primary-mild)]/40 rounded-xl text-sm text-[var(--primary)] focus:outline-none focus:border-[var(--primary)]"
-                                        placeholder="0012345678"
-                                        dir="ltr"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {/* استفاده از کامپوننت Select دیزاین سیستم پروژه برای جنسیت */}
-                                <div>
-                                    <label className="block font-semibold text-[var(--primary)] mb-1">
-                                        جنسیت
-                                    </label>
-                                    <Select<SelectOption>
-                                        options={GENDER_OPTIONS}
-                                        value={GENDER_OPTIONS.find(
-                                            (opt) =>
-                                                opt.value === formData.gender,
-                                        )}
-                                        onChange={(opt) =>
-                                            setFormData({
-                                                ...formData,
-                                                gender: ((opt as SelectOption)
-                                                    ?.value || 'Male') as
-                                                    | 'Male'
-                                                    | 'Female',
-                                            })
-                                        }
-                                    />
-                                </div>
-
-                                {/* تاریخ تولد شمسی */}
-                                <div>
-                                    <label className="block font-semibold text-[var(--primary)] mb-1">
-                                        تاریخ تولد
-                                    </label>
-                                    <div className="relative w-full">
-                                        <DatePicker />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block font-semibold text-[var(--primary)] mb-1">
-                                    تلفن اضطراری (اختیاری)
-                                </label>
-                                <input
-                                    type="text"
-                                    maxLength={11}
-                                    value={formData.emergencyPhone}
-                                    onChange={(e) =>
-                                        setFormData({
-                                            ...formData,
-                                            emergencyPhone:
-                                                e.target.value.replace(
-                                                    /\D/g,
-                                                    '',
-                                                ),
-                                        })
-                                    }
-                                    className="w-full px-3 py-2 border border-[var(--primary-mild)]/40 rounded-xl text-sm text-[var(--primary)] focus:outline-none focus:border-[var(--primary)]"
-                                    placeholder="0912... یا شماره ثابت"
-                                    dir="ltr"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block font-semibold text-[var(--primary)] mb-1">
-                                    نکات پزشکی و سلامتی (اختیاری)
-                                </label>
-                                <textarea
-                                    rows={2}
-                                    value={formData.medicalNotes}
-                                    onChange={(e) =>
-                                        setFormData({
-                                            ...formData,
-                                            medicalNotes: e.target.value,
-                                        })
-                                    }
-                                    className="w-full px-3 py-2 border border-[var(--primary-mild)]/40 rounded-xl text-sm text-[var(--primary)] focus:outline-none focus:border-[var(--primary)] resize-none"
-                                    placeholder="سوابق بیماری، حساسیت دارویی یا آسیب‌دیدگی خاص..."
-                                />
-                            </div>
-
-                            {editingMember && (
-                                <div className="flex items-center gap-2 pt-1">
-                                    <input
-                                        type="checkbox"
-                                        id="isActiveCheck"
-                                        checked={formData.isActive}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                isActive: e.target.checked,
-                                            })
-                                        }
-                                        className="w-4 h-4 text-[var(--primary)] rounded border-[var(--primary-mild)] focus:ring-[var(--primary)]"
-                                    />
-                                    <label
-                                        htmlFor="isActiveCheck"
-                                        className="font-semibold text-[var(--primary)] cursor-pointer"
-                                    >
-                                        حساب کاربری فعال باشد
-                                    </label>
-                                </div>
-                            )}
-
-                            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--primary-mild)]/20">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 rounded-xl text-[var(--primary-deep)] hover:bg-[var(--primary-subtle)] font-medium transition-colors"
-                                >
-                                    انصراف
-                                </button>
-                                <button
-                                    type="submit"
-                                    style={{
-                                        backgroundColor: 'var(--primary)',
-                                        color: 'var(--sidebar-text)',
-                                    }}
-                                    className="px-5 py-2 hover:opacity-90 rounded-xl font-medium transition-all shadow-sm"
-                                >
-                                    {editingMember
-                                        ? 'ذخیره تغییرات'
-                                        : 'ثبت نام ورزشکار'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+          <p className="mt-2 text-sm font-normal text-[var(--primary-deep)]">
+            ثبت، ویرایش، غیرفعال‌سازی و مشاهده سوابق ورزشکاران
+          </p>
         </div>
-    )
+
+        <button
+          type="button"
+          onClick={openCreateModal}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-bold text-[var(--sidebar-text)] shadow-md shadow-[var(--primary)]/20 transition hover:opacity-90"
+        >
+          <HiOutlineUserAdd className="h-5 w-5" />
+          افزودن ورزشکار جدید
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-[var(--primary-mild)]/20 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div className="w-full md:max-w-md">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="جستجو با نام، شماره تماس یا کد ملی..."
+            className="w-full rounded-xl border border-[var(--primary-mild)]/30 px-4 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={fetchMembers}
+          disabled={isLoadingMembers}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--primary-mild)]/30 bg-[var(--primary-subtle)] px-4 py-2.5 text-sm font-semibold text-[var(--primary)] transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <HiOutlineRefresh
+            className={`h-5 w-5 ${isLoadingMembers ? "animate-spin" : ""}`}
+          />
+          به‌روزرسانی
+        </button>
+      </div>
+
+      {/* Loading */}
+      {isLoadingMembers && (
+        <div className="rounded-2xl border border-[var(--primary-mild)]/20 bg-white p-12 text-center text-sm text-[var(--primary-mild)]">
+          در حال دریافت فهرست ورزشکاران...
+        </div>
+      )}
+
+      {/* Members */}
+      {!isLoadingMembers && (
+        <div className="space-y-4">
+          {filteredMembers.length > 0 ? (
+            filteredMembers.map((member) => (
+              <div
+                key={member.id}
+                className="flex flex-col gap-5 rounded-2xl border border-[var(--primary-mild)]/20 bg-white p-5 shadow-sm transition hover:border-[var(--primary-mild)]/60 hover:shadow-md lg:flex-row lg:items-center lg:justify-between"
+              >
+                <div className="flex min-w-[250px] items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--primary-subtle)] text-xl font-black text-[var(--primary)]">
+                    {member.firstName.charAt(0)}
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openDetailsModal(member.id)}
+                        className="text-right text-base font-bold text-[var(--primary)] hover:underline"
+                      >
+                        {member.fullName}
+                      </button>
+
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                        فعال
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--primary-deep)]">
+                      <span>{getGenderLabel(member.gender)}</span>
+                      <span>•</span>
+                      <span dir="ltr">{member.phoneNumber}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl bg-[var(--primary-subtle)]/50 p-3">
+                    <span className="mb-1 flex items-center gap-1 text-[11px] text-[var(--primary-deep)]">
+                      <HiOutlineCalendar className="h-4 w-4" />
+                      تاریخ عضویت
+                    </span>
+
+                    <p className="text-xs font-bold text-[var(--primary)]">
+                      {formatDate(member.joinDate)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-[var(--primary-subtle)]/50 p-3">
+                    <span className="mb-1 flex items-center gap-1 text-[11px] text-[var(--primary-deep)]">
+                      <HiOutlineUser className="h-4 w-4" />
+                      کد ملی
+                    </span>
+
+                    <p
+                      className="text-xs font-bold text-[var(--primary)]"
+                      dir="ltr"
+                    >
+                      {member.nationalCode}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-[var(--primary-subtle)]/50 p-3">
+                    <span className="mb-1 flex items-center gap-1 text-[11px] text-[var(--primary-deep)]">
+                      <FaDumbbell className="h-3.5 w-3.5" />
+                      کلاس و اشتراک
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => openDetailsModal(member.id)}
+                      className="text-xs font-bold text-[var(--primary)] hover:underline"
+                    >
+                      مشاهده جزئیات
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openDetailsModal(member.id)}
+                    title="مشاهده جزئیات"
+                    className="rounded-xl p-2.5 text-[var(--primary)] transition hover:bg-[var(--primary-subtle)]"
+                  >
+                    <HiOutlineEye className="h-5 w-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(member.id)}
+                    title="ویرایش ورزشکار"
+                    className="rounded-xl p-2.5 text-[var(--primary)] transition hover:bg-[var(--primary-subtle)]"
+                  >
+                    <HiOutlinePencilAlt className="h-5 w-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeleteMemberId(member.id)}
+                    title="غیرفعال‌سازی ورزشکار"
+                    className="rounded-xl p-2.5 text-rose-600 transition hover:bg-rose-50"
+                  >
+                    <HiOutlineTrash className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-2xl border border-dashed border-[var(--primary-mild)]/35 bg-white p-12 text-center">
+              <HiOutlineAcademicCap className="mx-auto h-10 w-10 text-[var(--primary-mild)]" />
+
+              <p className="mt-4 font-bold text-[var(--primary)]">
+                ورزشکاری پیدا نشد.
+              </p>
+
+              <p className="mt-2 text-xs text-[var(--primary-mild)]">
+                جستجو را تغییر دهید یا ورزشکار جدیدی ثبت کنید.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/*                      Create / Edit Member Modal                    */}
+      {/* ------------------------------------------------------------------ */}
+
+      {isFormModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--primary-mild)]/30 bg-white shadow-2xl">
+            {/* Modal header */}
+            <div className="flex items-center justify-between bg-[var(--sidebar-bg)] p-4 text-[var(--sidebar-text)]">
+              <div>
+                <h2 className="font-bold">
+                  {editingMemberId === null
+                    ? "افزودن ورزشکار جدید"
+                    : "ویرایش اطلاعات ورزشکار"}
+                </h2>
+
+                <p className="mt-1 text-[11px] font-normal text-[var(--primary-mild)]">
+                  تاریخ تولد را با تقویم شمسی وارد کنید.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeFormModal}
+                disabled={isSaving}
+                className="rounded-lg p-1 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                title="بستن"
+              >
+                <HiOutlineX className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSaveMember}
+              className="space-y-4 p-5 text-xs"
+            >
+              {/* Name */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="firstName"
+                    className="mb-1.5 block font-bold text-[var(--primary)]"
+                  >
+                    نام <span className="text-rose-600">*</span>
+                  </label>
+
+                  <input
+                    id="firstName"
+                    type="text"
+                    required
+                    value={formData.firstName}
+                    onChange={(event) =>
+                      setFormData((current) => ({
+                        ...current,
+                        firstName: event.target.value,
+                      }))
+                    }
+                    placeholder="مثال: علی"
+                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="lastName"
+                    className="mb-1.5 block font-bold text-[var(--primary)]"
+                  >
+                    نام خانوادگی <span className="text-rose-600">*</span>
+                  </label>
+
+                  <input
+                    id="lastName"
+                    type="text"
+                    required
+                    value={formData.lastName}
+                    onChange={(event) =>
+                      setFormData((current) => ({
+                        ...current,
+                        lastName: event.target.value,
+                      }))
+                    }
+                    placeholder="مثال: رضایی"
+                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                  />
+                </div>
+              </div>
+
+              {/* Phone / national code */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="phoneNumber"
+                    className="mb-1.5 block font-bold text-[var(--primary)]"
+                  >
+                    شماره تماس <span className="text-rose-600">*</span>
+                  </label>
+
+                  <input
+                    id="phoneNumber"
+                    type="text"
+                    required
+                    maxLength={11}
+                    inputMode="numeric"
+                    value={formData.phoneNumber}
+                    onChange={(event) =>
+                      setFormData((current) => ({
+                        ...current,
+                        phoneNumber: event.target.value.replace(/\D/g, ""),
+                      }))
+                    }
+                    placeholder="09123456789"
+                    dir="ltr"
+                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="nationalCode"
+                    className="mb-1.5 block font-bold text-[var(--primary)]"
+                  >
+                    کد ملی <span className="text-rose-600">*</span>
+                  </label>
+
+                  <input
+                    id="nationalCode"
+                    type="text"
+                    required
+                    maxLength={10}
+                    inputMode="numeric"
+                    value={formData.nationalCode}
+                    onChange={(event) =>
+                      setFormData((current) => ({
+                        ...current,
+                        nationalCode: event.target.value.replace(/\D/g, ""),
+                      }))
+                    }
+                    placeholder="0012345678"
+                    dir="ltr"
+                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                  />
+                </div>
+              </div>
+
+              {/* Gender / Jalali birthDate */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block font-bold text-[var(--primary)]">
+                    جنسیت <span className="text-rose-600">*</span>
+                  </label>
+
+                  <Select<SelectOption>
+                    options={GENDER_OPTIONS}
+                    value={
+                      GENDER_OPTIONS.find(
+                        (item) => item.value === formData.gender
+                      ) ?? GENDER_OPTIONS[0]
+                    }
+                    onChange={(option) =>
+                      setFormData((current) => ({
+                        ...current,
+                        gender: (option?.value ?? "Male") as ApiGender,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block font-bold text-[var(--primary)]">
+                    تاریخ تولد <span className="text-rose-600">*</span>
+                  </label>
+
+                  <DatePicker
+                    calendar={persian}
+                    locale={persian_fa}
+                    value={formData.birthDate}
+                    onChange={(date: DateObject | null) =>
+                      setFormData((current) => ({
+                        ...current,
+                        birthDate: date,
+                      }))
+                    }
+                    calendarPosition="bottom-right"
+                    placeholder="انتخاب تاریخ تولد"
+                    inputClass="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                  />
+
+                  {!formData.birthDate && (
+                    <p className="mt-1 text-[10px] font-normal text-[var(--primary-mild)]">
+                      تاریخ را با تقویم شمسی انتخاب کنید.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Emergency phone */}
+              <div>
+                <label
+                  htmlFor="emergencyPhone"
+                  className="mb-1.5 block font-bold text-[var(--primary)]"
+                >
+                  شماره تماس ضروری{" "}
+                  <span className="font-normal text-[var(--primary-mild)]">
+                    (اختیاری)
+                  </span>
+                </label>
+
+                <input
+                  id="emergencyPhone"
+                  type="text"
+                  maxLength={11}
+                  inputMode="numeric"
+                  value={formData.emergencyPhone}
+                  onChange={(event) =>
+                    setFormData((current) => ({
+                      ...current,
+                      emergencyPhone: event.target.value.replace(/\D/g, ""),
+                    }))
+                  }
+                  placeholder="09123456789"
+                  dir="ltr"
+                  className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                />
+              </div>
+
+              {/* Medical notes */}
+              <div>
+                <label
+                  htmlFor="medicalNotes"
+                  className="mb-1.5 block font-bold text-[var(--primary)]"
+                >
+                  نکات پزشکی و سلامتی{" "}
+                  <span className="font-normal text-[var(--primary-mild)]">
+                    (اختیاری)
+                  </span>
+                </label>
+
+                <textarea
+                  id="medicalNotes"
+                  rows={4}
+                  value={formData.medicalNotes}
+                  onChange={(event) =>
+                    setFormData((current) => ({
+                      ...current,
+                      medicalNotes: event.target.value,
+                    }))
+                  }
+                  placeholder="مانند آسیب‌دیدگی، سابقه بیماری، حساسیت دارویی و..."
+                  className="w-full resize-none rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm leading-6 text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                />
+              </div>
+
+              {/* Is active - only edit */}
+              {editingMemberId !== null && (
+                <div className="flex items-center gap-2 rounded-xl border border-[var(--primary-mild)]/20 bg-[var(--primary-subtle)]/50 p-3">
+                  <input
+                    id="isActive"
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={(event) =>
+                      setFormData((current) => ({
+                        ...current,
+                        isActive: event.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 cursor-pointer rounded border-[var(--primary-mild)] text-[var(--primary)] focus:ring-[var(--primary)]"
+                  />
+
+                  <label
+                    htmlFor="isActive"
+                    className="cursor-pointer font-bold text-[var(--primary)]"
+                  >
+                    حساب ورزشکار فعال باشد
+                  </label>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 border-t border-[var(--primary-mild)]/20 pt-4">
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={closeFormModal}
+                  className="rounded-xl px-4 py-2.5 text-sm font-bold text-[var(--primary-deep)] transition hover:bg-[var(--primary-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  انصراف
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-bold text-[var(--sidebar-text)] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSaving
+                    ? "در حال ذخیره..."
+                    : editingMemberId === null
+                    ? "ثبت ورزشکار"
+                    : "ذخیره تغییرات"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/*                         Member details modal                       */}
+      {/* ------------------------------------------------------------------ */}
+
+      {isDetailsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-[var(--primary-mild)]/30 bg-white shadow-2xl">
+            <div className="flex items-center justify-between bg-[var(--sidebar-bg)] p-5 text-[var(--sidebar-text)]">
+              <div>
+                <h2 className="font-bold">
+                  {memberDetails
+                    ? `${memberDetails.firstName} ${memberDetails.lastName}`
+                    : "جزئیات ورزشکار"}
+                </h2>
+
+                <p className="mt-1 text-[11px] font-normal text-[var(--primary-mild)]">
+                  کلاس‌ها، سانس‌ها، اشتراک‌ها و سوابق حضور
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeDetailsModal}
+                className="rounded-lg p-1 transition hover:bg-white/10"
+                title="بستن"
+              >
+                <HiOutlineX className="h-5 w-5" />
+              </button>
+            </div>
+
+            {isLoadingDetails && (
+              <div className="p-12 text-center text-sm text-[var(--primary-mild)]">
+                در حال دریافت جزئیات ورزشکار...
+              </div>
+            )}
+
+            {!isLoadingDetails && memberDetails && (
+              <div className="space-y-7 p-5">
+                {/* Personal details */}
+                <section>
+                  <h3 className="mb-3 text-sm font-black text-[var(--primary)]">
+                    اطلاعات فردی
+                  </h3>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-xl bg-[var(--primary-subtle)]/60 p-3">
+                      <span className="text-[11px] text-[var(--primary-deep)]">
+                        شماره تماس
+                      </span>
+
+                      <p
+                        className="mt-1 text-xs font-bold text-[var(--primary)]"
+                        dir="ltr"
+                      >
+                        {memberDetails.phoneNumber}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-[var(--primary-subtle)]/60 p-3">
+                      <span className="text-[11px] text-[var(--primary-deep)]">
+                        کد ملی
+                      </span>
+
+                      <p
+                        className="mt-1 text-xs font-bold text-[var(--primary)]"
+                        dir="ltr"
+                      >
+                        {memberDetails.nationalCode}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-[var(--primary-subtle)]/60 p-3">
+                      <span className="text-[11px] text-[var(--primary-deep)]">
+                        تاریخ تولد
+                      </span>
+
+                      <p className="mt-1 text-xs font-bold text-[var(--primary)]">
+                        {formatDate(memberDetails.birthDate)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-[var(--primary-subtle)]/60 p-3">
+                      <span className="text-[11px] text-[var(--primary-deep)]">
+                        وضعیت حساب
+                      </span>
+
+                      <p className="mt-1 text-xs font-bold text-[var(--primary)]">
+                        {memberDetails.isActive ? "فعال" : "غیرفعال"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="rounded-xl border border-[var(--primary-mild)]/20 p-3">
+                      <span className="text-[11px] text-[var(--primary-deep)]">
+                        شماره تماس ضروری
+                      </span>
+
+                      <p
+                        className="mt-1 text-xs font-bold text-[var(--primary)]"
+                        dir="ltr"
+                      >
+                        {memberDetails.emergencyPhone || "ثبت نشده"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-[var(--primary-mild)]/20 p-3">
+                      <span className="text-[11px] text-[var(--primary-deep)]">
+                        نکات پزشکی
+                      </span>
+
+                      <p className="mt-1 text-xs font-bold leading-6 text-[var(--primary)]">
+                        {memberDetails.medicalNotes || "ثبت نشده"}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Subscriptions */}
+                <section>
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-[var(--primary)]">
+                    <HiOutlineCheckCircle className="h-5 w-5" />
+                    اشتراک‌ها و وضعیت پرداخت
+                  </h3>
+
+                  {memberDetails.subscriptions.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[var(--primary-mild)]/30 p-4 text-center text-xs text-[var(--primary-mild)]">
+                      اشتراکی برای این ورزشکار ثبت نشده است.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {memberDetails.subscriptions.map((subscription) => {
+                        const status = getSubscriptionStatus(
+                          subscription.status
+                        );
+
+                        return (
+                          <div
+                            key={subscription.subscriptionId}
+                            className="rounded-xl border border-[var(--primary-mild)]/20 p-4"
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="font-bold text-[var(--primary)]">
+                                  {subscription.packageName}
+                                </p>
+
+                                <p className="mt-1 text-xs text-[var(--primary-deep)]">
+                                  مربی: {subscription.trainerFullName}
+                                </p>
+                              </div>
+
+                              <span
+                                className={`w-fit rounded-full border px-3 py-1 text-[11px] font-bold ${status.className}`}
+                              >
+                                {status.label}
+                              </span>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                              <div className="rounded-lg bg-[var(--primary-subtle)]/50 p-2.5">
+                                <span className="text-[10px] text-[var(--primary-deep)]">
+                                  بازه اشتراک
+                                </span>
+
+                                <p className="mt-1 text-xs font-bold text-[var(--primary)]">
+                                  {formatDate(subscription.startDate)} تا{" "}
+                                  {formatDate(subscription.endDate)}
+                                </p>
+                              </div>
+
+                              <div className="rounded-lg bg-[var(--primary-subtle)]/50 p-2.5">
+                                <span className="text-[10px] text-[var(--primary-deep)]">
+                                  تعداد جلسات
+                                </span>
+
+                                <p className="mt-1 text-xs font-bold text-[var(--primary)]">
+                                  {formatNumber(subscription.totalSessions)} جلسه
+                                </p>
+                              </div>
+
+                              <div className="rounded-lg bg-[var(--primary-subtle)]/50 p-2.5">
+                                <span className="text-[10px] text-[var(--primary-deep)]">
+                                  جلسات باقی‌مانده
+                                </span>
+
+                                <p className="mt-1 text-xs font-bold text-[var(--primary)]">
+                                  {formatNumber(
+                                    subscription.remainingSessions
+                                  )}{" "}
+                                  جلسه
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                {/* Courses */}
+                <section>
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-[var(--primary)]">
+                    <FaDumbbell className="h-4 w-4" />
+                    کلاس‌ها، سانس‌ها و حضور و غیاب
+                  </h3>
+
+                  {memberDetails.courses.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[var(--primary-mild)]/30 p-4 text-center text-xs text-[var(--primary-mild)]">
+                      این ورزشکار در هیچ کلاسی ثبت‌نام نشده است.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {memberDetails.courses.map((course) => (
+                        <div
+                          key={course.enrollmentId}
+                          className="rounded-xl border border-[var(--primary-mild)]/20 p-4"
+                        >
+                          <div className="mb-4">
+                            <p className="font-bold text-[var(--primary)]">
+                              {course.classTitle}
+                            </p>
+
+                            <p className="mt-1 text-xs text-[var(--primary-deep)]">
+                              رشته: {course.sportName} | گروه:{" "}
+                              {course.groupName || "ندارد"} | مربی:{" "}
+                              {course.trainerFullName}
+                            </p>
+                          </div>
+
+                          <div className="mb-4">
+                            <p className="mb-2 text-xs font-bold text-[var(--primary)]">
+                              سانس‌های کلاس
+                            </p>
+
+                            {course.schedules.length === 0 ? (
+                              <p className="text-xs text-[var(--primary-mild)]">
+                                سانسی برای این کلاس ثبت نشده است.
+                              </p>
+                            ) : (
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {course.schedules.map((schedule, index) => (
+                                  <div
+                                    key={`${course.enrollmentId}-${index}`}
+                                    className="flex items-center justify-between rounded-lg bg-[var(--primary-subtle)]/60 p-3"
+                                  >
+                                    <span className="flex items-center gap-1.5 text-xs font-bold text-[var(--primary)]">
+                                      <HiOutlineCalendar className="h-4 w-4" />
+                                      {getDayOfWeekLabel(schedule.dayOfWeek)}
+                                    </span>
+
+                                    <span
+                                      className="flex items-center gap-1 text-xs font-bold text-[var(--primary-deep)]"
+                                      dir="ltr"
+                                    >
+                                      <HiOutlineClock className="h-4 w-4" />
+                                      {schedule.startTime} - {schedule.endTime}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="mb-2 text-xs font-bold text-[var(--primary)]">
+                              سوابق حضور و غیاب
+                            </p>
+
+                            {course.attendances.length === 0 ? (
+                              <p className="text-xs text-[var(--primary-mild)]">
+                                سابقهٔ حضور و غیابی وجود ندارد.
+                              </p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {course.attendances.map(
+                                  (attendance, index) => (
+                                    <span
+                                      key={`${course.enrollmentId}-attendance-${index}`}
+                                      className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${
+                                        attendance.isPresent
+                                          ? "bg-emerald-50 text-emerald-700"
+                                          : "bg-rose-50 text-rose-700"
+                                      }`}
+                                    >
+                                      {formatDate(attendance.attendanceDate)}:{" "}
+                                      {attendance.isPresent ? "حاضر" : "غایب"}
+                                    </span>
+                                  )
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <div className="flex justify-end border-t border-[var(--primary-mild)]/20 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = memberDetails.id;
+                      closeDetailsModal();
+                      openEditModal(id);
+                    }}
+                    className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-bold text-[var(--sidebar-text)] transition hover:opacity-90"
+                  >
+                    ویرایش اطلاعات
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/*                         Deactivate dialog                          */}
+      {/* ------------------------------------------------------------------ */}
+
+      {deleteMemberId !== null && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+              <HiOutlineExclamationCircle className="h-7 w-7" />
+            </div>
+
+            <h2 className="mt-4 text-lg font-black text-[var(--primary)]">
+              غیرفعال‌سازی ورزشکار
+            </h2>
+
+            <p className="mt-2 text-sm leading-7 text-[var(--primary-deep)]">
+              آیا از غیرفعال‌سازی این ورزشکار اطمینان دارید؟ این عملیات مطابق
+              API حذف دائمی نیست و حساب عضو را غیرفعال می‌کند.
+            </p>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeleteMemberId(null)}
+                className="rounded-xl px-4 py-2.5 text-sm font-bold text-[var(--primary-deep)] transition hover:bg-[var(--primary-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                انصراف
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={confirmDeactivateMember}
+                className="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isDeleting ? "در حال انجام..." : "تأیید غیرفعال‌سازی"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/*                         Central error dialog                       */}
+      {/* ------------------------------------------------------------------ */}
+
+      {errorDialog.isOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+              <HiOutlineExclamationCircle className="h-7 w-7" />
+            </div>
+
+            <h2 className="mt-4 text-lg font-black text-[var(--primary)]">
+              {errorDialog.title}
+            </h2>
+
+            <p className="mt-2 text-sm leading-7 text-[var(--primary-deep)]">
+              {errorDialog.message}
+            </p>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={closeErrorDialog}
+                className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-bold text-[var(--sidebar-text)] transition hover:opacity-90"
+              >
+                متوجه شدم
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

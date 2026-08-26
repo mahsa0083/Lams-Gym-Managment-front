@@ -1,17 +1,22 @@
-'use client'
+"use client";
+
 import React, {
   useCallback,
   useEffect,
   useState,
   useTransition,
-} from 'react'
-import Image from 'next/image'
-import Select from '@/components/ui/Select'
+} from "react";
+import Image from "next/image";
 
+import Select from "@/components/ui/Select";
+import ApiErrorDialog from "@/components/common/ApiErrorDialog";
+import ApiService from "@/services/client/ApiService";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 import TrainerFormModal, {
   type CreateTrainerDto,
-} from './addcoach/Insertcoach'
+} from "./addcoach/Insertcoach";
+
 import {
   HiOutlinePhone,
   HiOutlineAcademicCap,
@@ -23,468 +28,558 @@ import {
   HiOutlineChevronDown,
   HiOutlineChevronUp,
   HiOutlinePlusCircle,
-  HiOutlineX,
   HiOutlineCalendar,
-  HiOutlineOfficeBuilding,
-  HiOutlineExclamation
-} from 'react-icons/hi'
+  HiOutlineExclamation,
+} from "react-icons/hi";
 
-export interface OptionType {
-  value: string
-  label: string
-}
-type GenderType = 0 | 1
+/* -------------------------------------------------------------------------- */
+/*                                    Types                                   */
+/* -------------------------------------------------------------------------- */
 
+type ApiGender = "Male" | "Female";
+type FormGender = 0| 1;
 
+type ApiDayOfWeek =
+  | "Saturday"
+  | "Sunday"
+  | "Monday"
+  | "Tuesday"
+  | "Wednesday"
+  | "Thursday"
+  | "Friday";
 
-interface CreateTrainerFormData {
-  firstName: string
-  lastName: string
-  phoneNumber: string
-  nationalCode: string
-  gender: GenderType | null
-  specialty: OptionType | null
-  baseSalary: number | ''
-  commissionPercentage: number | ''
-}
-
-interface TrainerFormModalProps {
-  isOpen: boolean
-  onClose: () => void
-
-  /**
-   * بعد از ثبت موفق، payload نهایی اینجا برمی‌گردد.
-   * در صفحه‌ی والد می‌توانی API Call اصلی را انجام دهی.
-   */
-  onSubmit: (data: CreateTrainerDto) => Promise<void> | void
+interface OptionType {
+  value: string;
+  label: string;
 }
 
-export interface Trainer {
-  id: number
-  firstName: string
-  lastName: string
-  phone: string
-  specialty: string
-  subSpecialty: string
-  studentCount: number
-  percentage: string
-  monthlySalary: string
-  avatar: string
-  schedule: {
-    days: string
-    time: string
-    location: string
-  }[]
+/**
+ * پاسخ GET /api/trainers
+ */
+interface TrainerListItemResponse {
+  id: number;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  nationalCode: string;
+  userActive: boolean;
+  trainerActive: boolean;
+  specialty: string | null;
+  baseSalary: number;
+  commissionPercentage: number;
 }
 
-interface TrainerApiDto {
-  id: number
-  firstName: string
-  lastName: string
-  phoneNumber: string
-  nationalCode: string
-  userActive: boolean
-  trainerActive: boolean
-  specialty: string | null
-  baseSalary: number
-  commissionPercentage: number
-}
-interface TrainerApiDto {
-  id: number
-  firstName: string
-  lastName: string
-  phoneNumber: string
-  nationalCode: string
-  gender: number | null
-  specialty: string | null
-  baseSalary: number
-  commissionPercentage: number
+/**
+ * schedules داخل هر کلاس در پاسخ جزئیات مربی
+ */
+interface TrainerClassScheduleResponse {
+  dayOfWeek: ApiDayOfWeek;
+  startTime: string;
+  endTime: string;
 }
 
-const initialTrainers: Trainer[] = [
-  {
-    id: 1,
-    firstName: 'امیر',
-    lastName: 'رضایی',
-    phone: '۰۹۱۲۳۴۵۶۷۸۹',
-    specialty: 'bodybuilding',
-    subSpecialty: 'پرورشی و تناسب اندام',
-    studentCount: 18,
-    percentage: '۶۰٪',
-    monthlySalary: '۱۵,۴۰۰,۰۰۰ تومان',
-    avatar: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=300',
-    schedule: [
-      { days: 'شنبه، چهارشنبه', time: '15:00 الی 18:00', location: 'سالن وزنه - اصلی' },
-      { days: 'دوشنبه', time: '17:00 الی 20:00', location: 'سالن وزنه - اصلی' },
-    ],
-  },
-  {
-    id: 2,
-    firstName: 'مریم',
-    lastName: 'کاظمی',
-    phone: '۰۹۱۹۸۷۶۵۴۳۲',
-    specialty: 'yoga',
-    subSpecialty: 'هاتایوگا و مدیتیشن',
-    studentCount: 12,
-    percentage: '۵۰٪',
-    monthlySalary: '۹,۸۰۰,۰۰۰ تومان',
-    avatar: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?auto=format&fit=crop&q=80&w=300',
-    schedule: [
-      { days: 'یکشنبه، سه‌شنبه', time: '10:00 الی 12:00', location: 'سالن یوگا - طبقه ۲' },
-    ],
-  },
-]
+/**
+ * classes داخل پاسخ GET /api/trainers/{id}
+ */
+interface TrainerClassResponse {
+  gymClassId: number;
+  title: string;
+  sportName: string;
+  capacity: number;
+  schedules: TrainerClassScheduleResponse[];
+}
 
-const filterOptions: OptionType[] = [
-  { value: 'all', label: 'همه رشته‌های ورزشی' },
-  { value: 'bodybuilding', label: 'بدنسازی و پرورشی' },
-  { value: 'fitness', label: 'فیتنس و کراس‌فیت' },
-  { value: 'yoga', label: 'یوگا و مدیتیشن' },
-]
+/**
+ * پاسخ GET /api/trainers/{id}
+ */
+interface TrainerDetailsResponse {
+  id: number;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  nationalCode: string;
+  gender: ApiGender;
+  userActive: boolean;
+  trainerActive: boolean;
+  createdAt: string;
+  specialty: string | null;
+  baseSalary: number;
+  commissionPercentage: number;
+  totalStudents: number;
+  totalActiveClasses: number;
+  classes: TrainerClassResponse[];
+}
 
-const specialtyOptions: OptionType[] = [
-  { value: 'bodybuilding', label: 'بدنسازی و پرورشی' },
-  { value: 'fitness', label: 'فیتنس و کراس‌فیت' },
-  { value: 'yoga', label: 'یوگا و مدیتیشن' },
-]
+/**
+ * بدنه POST /api/trainers
+ */
+interface CreateTrainerRequest {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  nationalCode: string;
+  gender: ApiGender;
+  specialty: string;
+  baseSalary: number;
+  commissionPercentage: number;
+}
 
-const locationOptions: OptionType[] = [
-  { value: 'سالن وزنه - اصلی', label: 'سالن وزنه - اصلی' },
-  { value: 'سالن یوگا - طبقه ۲', label: 'سالن یوگا - طبقه ۲' },
-  { value: 'سالن کراس‌فیت', label: 'سالن کراس‌فیت' },
-  { value: 'سالن هوازی', label: 'سالن هوازی' },
-  { value: 'استخر و اسپا', label: 'استخر و اسپا' },
-]
+/**
+ * بدنه PUT /api/trainers/{id}
+ */
+interface UpdateTrainerRequest extends CreateTrainerRequest {
+  trainerActive: boolean;
+}
 
-// تولید لیست ساعت‌ها از ۱ تا ۲۴
-const hourOptions: OptionType[] = Array.from({ length: 24 }, (_, i) => {
-  const hour = (i + 1).toString().padStart(2, '0')
-  return { value: hour, label: hour }
-})
+/**
+ * مدل مورد استفاده فقط برای UI صفحه
+ */
+interface TrainerTableItem {
+  id: number;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  specialty: string;
+  baseSalary: number;
+  commissionPercentage: number;
+  avatar: string;
+}
 
-// تولید لیست دقیقه‌ها از ۱ تا ۶۰
-const minuteOptions: OptionType[] = Array.from({ length: 60 }, (_, i) => {
-  const min = (i + 1).toString().padStart(2, '0')
-  return { value: min, label: min }
-})
+/* -------------------------------------------------------------------------- */
+/*                                Constants                                   */
+/* -------------------------------------------------------------------------- */
 
-const WEEK_DAYS = ['شنبه', 'یکشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'دوشنبه']
-
+const TRAINERS_ENDPOINT = "/trainers";
 
 const DEFAULT_AVATAR =
-  'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=300'
+  "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=300";
+
+const filterOptions: OptionType[] = [
+  { value: "all", label: "همه رشته‌های ورزشی" },
+  { value: "bodybuilding", label: "بدنسازی و پرورشی" },
+  { value: "fitness", label: "فیتنس و کراس‌فیت" },
+  { value: "yoga", label: "یوگا و مدیتیشن" },
+];
+
+const DAY_OF_WEEK_LABELS: Record<ApiDayOfWeek, string> = {
+  Saturday: "شنبه",
+  Sunday: "یکشنبه",
+  Monday: "دوشنبه",
+  Tuesday: "سه‌شنبه",
+  Wednesday: "چهارشنبه",
+  Thursday: "پنج‌شنبه",
+  Friday: "جمعه",
+};
+
+/* -------------------------------------------------------------------------- */
+/*                                Helpers                                     */
+/* -------------------------------------------------------------------------- */
 
 const toPersianNumber = (value: number) => {
-  return new Intl.NumberFormat('fa-IR').format(value)
-}
+  return new Intl.NumberFormat("fa-IR").format(value);
+};
 
-const mapTrainerFromApi = (trainer: TrainerApiDto): Trainer => {
+const formatMoney = (value: number) => {
+  return `${toPersianNumber(value)} تومان`;
+};
+
+const formatPercentage = (value: number) => {
+  return `${toPersianNumber(value)}٪`;
+};
+
+const mapApiGenderToFormGender = (gender: ApiGender): FormGender => {
+  return gender === "Female" ? 1 : 0;
+};
+
+const mapFormGenderToApiGender = (
+  gender: CreateTrainerDto["gender"]
+): ApiGender => {
+  return gender === 1 ? "Female" : "Male";
+};
+
+const mapFormToCreateRequest = (
+  form: CreateTrainerDto
+): CreateTrainerRequest => {
+  return {
+    firstName: form.firstName.trim(),
+    lastName: form.lastName.trim(),
+    phoneNumber: form.phoneNumber.trim(),
+    nationalCode: form.nationalCode.trim(),
+    gender: mapFormGenderToApiGender(form.gender),
+    specialty: form.specialty?.trim() ?? "",
+    baseSalary: Number(form.baseSalary) || 0,
+    commissionPercentage: Number(form.commissionPercentage) || 0,
+  };
+};
+
+const mapListResponseToTableItem = (
+  trainer: TrainerListItemResponse
+): TrainerTableItem => {
   return {
     id: trainer.id,
-    firstName: trainer.firstName,
-    lastName: trainer.lastName,
-    phone: trainer.phoneNumber,
-
-    specialty: trainer.specialty ?? 'نامشخص',
-
-    // این موارد فعلاً در خروجی API وجود ندارند
-    subSpecialty: trainer.specialty ?? 'ثبت نشده',
-    studentCount: 0,
+    firstName: trainer.firstName ?? "",
+    lastName: trainer.lastName ?? "",
+    phone: trainer.phoneNumber ?? "",
+    specialty: trainer.specialty ?? "تعیین نشده",
+    baseSalary: trainer.baseSalary ?? 0,
+    commissionPercentage: trainer.commissionPercentage ?? 0,
     avatar: DEFAULT_AVATAR,
-    schedule: [],
+  };
+};
 
-    percentage: `${toPersianNumber(trainer.commissionPercentage)}٪`,
-    monthlySalary: `${toPersianNumber(trainer.baseSalary)} تومان`,
-  }
-}
-
+/* -------------------------------------------------------------------------- */
+/*                                Component                                   */
+/* -------------------------------------------------------------------------- */
 
 export default function AdminTrainersListPage() {
-  const [trainers, setTrainers] = useState<Trainer[]>([])
-  const [isLoadingTrainers, setIsLoadingTrainers] = useState(true)
-  const [apiError, setApiError] = useState('')
+  const [trainers, setTrainers] = useState<TrainerTableItem[]>([]);
+  const [isLoadingTrainers, setIsLoadingTrainers] = useState(true);
 
+  const [selectedCategory, setSelectedCategory] =
+    useState<OptionType | null>(filterOptions[0]);
 
-  const [selectedCategory, setSelectedCategory] = useState<OptionType | null>(filterOptions[0])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchOptions, setSearchOptions] = useState<OptionType[]>([])
-  const [isPending, startTransition] = useTransition()
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOptions, setSearchOptions] = useState<OptionType[]>([]);
+  const [isPending, startTransition] = useTransition();
 
-  const [expandedTrainerId, setExpandedTrainerId] = useState<number | null>(null)
-  const [deleteTrainerId, setDeleteTrainerId] = useState<number | null>(null)
+  const [expandedTrainerId, setExpandedTrainerId] = useState<number | null>(
+    null
+  );
 
-  const [showFormModal, setShowFormModal] = useState(false)
-  const [editingTrainerId, setEditingTrainerId] = useState<number | null>(null)
+  /**
+   * اطلاعات جزئیات هر مربی، شامل کلاس‌ها و سانس‌ها.
+   * کلید: trainerId
+   */
+  const [trainerDetailsById, setTrainerDetailsById] = useState<
+    Record<number, TrainerDetailsResponse>
+  >({});
 
-  const [selectedDays, setSelectedDays] = useState<string[]>([])
+  const [loadingDetailsTrainerId, setLoadingDetailsTrainerId] = useState<
+    number | null
+  >(null);
 
-  // استیت‌های ساعت و دقیقه شروع و پایان
-  const [startHour, setStartHour] = useState<OptionType | null>(hourOptions[14]) // 15
-  const [startMinute, setStartMinute] = useState<OptionType | null>(minuteOptions[59]) // 60
-  const [endHour, setEndHour] = useState<OptionType | null>(hourOptions[17]) // 18
-  const [endMinute, setEndMinute] = useState<OptionType | null>(minuteOptions[59]) // 60
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingTrainerId, setEditingTrainerId] = useState<number | null>(
+    null
+  );
 
-  const [selectedLocation, setSelectedLocation] = useState<OptionType | null>(locationOptions[0])
+  const [editInitialData, setEditInitialData] =
+    useState<CreateTrainerDto | null>(null);
 
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    specialty: specialtyOptions[0],
-    subSpecialty: '',
-    studentCount: 0,
-    percentage: '',
-  })
-  //واکشی اطلاعات
+  const [deleteTrainerId, setDeleteTrainerId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [errorDialog, setErrorDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+  });
+
+  /* ------------------------------------------------------------------------ */
+  /*                                Error dialog                              */
+  /* ------------------------------------------------------------------------ */
+
+  const openErrorDialog = (
+    error: unknown,
+    title: string,
+    fallbackMessage: string
+  ) => {
+    setErrorDialog({
+      isOpen: true,
+      title,
+      message: getApiErrorMessage(error, fallbackMessage),
+    });
+  };
+
+  const closeErrorDialog = () => {
+    setErrorDialog((current) => ({
+      ...current,
+      isOpen: false,
+    }));
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                                  GET ALL                                 */
+  /* ------------------------------------------------------------------------ */
 
   const fetchTrainers = useCallback(async () => {
     try {
-      setIsLoadingTrainers(true)
-      setApiError('')
+      setIsLoadingTrainers(true);
 
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL
+      const response = await ApiService.get<TrainerListItemResponse[]>(
+        TRAINERS_ENDPOINT
+      );
 
-      if (!baseUrl) {
-        throw new Error(
-          'آدرس API تنظیم نشده است. فایل .env.local را بررسی کن.'
-        )
-      }
-
-      const response = await fetch(`${baseUrl}/api/trainers`, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        throw new Error('دریافت لیست مربی‌ها ناموفق بود.')
-      }
-
-      const apiTrainers: TrainerApiDto[] = await response.json()
-
-      setTrainers(apiTrainers.map(mapTrainerFromApi))
+      setTrainers(
+        Array.isArray(response)
+          ? response.map(mapListResponseToTableItem)
+          : []
+      );
     } catch (error) {
-      console.error(error)
+      setTrainers([]);
 
-      setApiError(
-        error instanceof Error
-          ? error.message
-          : 'خطایی در دریافت اطلاعات رخ داد.'
-      )
+      openErrorDialog(
+        error,
+        "خطا در دریافت مربی‌ها",
+        "دریافت فهرست مربی‌ها ناموفق بود."
+      );
     } finally {
-      setIsLoadingTrainers(false)
+      setIsLoadingTrainers(false);
     }
-  }, [])
+  }, []);
+
   useEffect(() => {
-    fetchTrainers()
-  }, [fetchTrainers])
+    fetchTrainers();
+  }, [fetchTrainers]);
 
-  //افزودن مربی
-  const handleCreateTrainer = async (data: CreateTrainerDto) => {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/trainers/Add`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      }
-    )
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => null)
-
-      throw new Error(error?.message ?? 'ثبت مربی ناموفق بود.')
-    }
-
-    // اینجا در صورت نیاز لیست مربی‌ها را دوباره fetch کن.
-  }
-  // کنترل ورود شماره تلفن (فقط عدد و حداکثر ۱۱ رقم)
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '')
-    if (value.length <= 11) {
-      setFormData({ ...formData, phone: value })
-    }
-  }
-
-  const toggleDaySelection = (day: string) => {
-    setSelectedDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
-    )
-  }
+  /* ------------------------------------------------------------------------ */
+  /*                               Search / filter                            */
+  /* ------------------------------------------------------------------------ */
 
   const handleSearchInputChange = (value: string) => {
-    const trimmed = value.trim().toLowerCase()
-    setSearchQuery(value)
+    const normalizedValue = value.trim().toLowerCase();
 
-    if (!trimmed) {
-      setSearchOptions([])
-      return
+    setSearchQuery(value);
+
+    if (!normalizedValue) {
+      setSearchOptions([]);
+      return;
     }
 
     startTransition(() => {
-      const matches = trainers
-        .filter((t) => `${t.firstName} ${t.lastName}`.toLowerCase().includes(trimmed))
-        .map((t) => ({
-          value: `${t.firstName} ${t.lastName}`,
-          label: `${t.firstName} ${t.lastName}`,
-        }))
-      setSearchOptions(matches)
-    })
-  }
+      const options = trainers
+        .filter((trainer) => {
+          const fullName =
+            `${trainer.firstName} ${trainer.lastName}`.toLowerCase();
 
-  const toggleExpand = (id: number) => {
-    setExpandedTrainerId((prev) => (prev === id ? null : id))
-  }
+          return (
+            fullName.includes(normalizedValue) ||
+            trainer.phone.includes(normalizedValue)
+          );
+        })
+        .map((trainer) => ({
+          value: `${trainer.firstName} ${trainer.lastName}`,
+          label: `${trainer.firstName} ${trainer.lastName}`,
+        }));
+
+      setSearchOptions(options);
+    });
+  };
+
+  const filteredTrainers = trainers.filter((trainer) => {
+    const fullName = `${trainer.firstName} ${trainer.lastName}`.toLowerCase();
+
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+
+    const matchesSearch =
+      !normalizedSearch ||
+      fullName.includes(normalizedSearch) ||
+      trainer.phone.includes(normalizedSearch);
+
+    const matchesCategory =
+      !selectedCategory ||
+      selectedCategory.value === "all" ||
+      trainer.specialty === selectedCategory.value;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  /* ------------------------------------------------------------------------ */
+  /*                            GET DETAILS + SCHEDULES                       */
+  /* ------------------------------------------------------------------------ */
+
+  const handleToggleTrainerDetails = async (trainerId: number) => {
+    if (expandedTrainerId === trainerId) {
+      setExpandedTrainerId(null);
+      return;
+    }
+
+    setExpandedTrainerId(trainerId);
+
+    /**
+     * اگر قبلاً جزئیات گرفته شده، دیگر درخواست دوباره نزن.
+     */
+    if (trainerDetailsById[trainerId]) {
+      return;
+    }
+
+    try {
+      setLoadingDetailsTrainerId(trainerId);
+
+      const details = await ApiService.get<TrainerDetailsResponse>(
+        `${TRAINERS_ENDPOINT}/${trainerId}`
+      );
+
+      setTrainerDetailsById((current) => ({
+        ...current,
+        [trainerId]: details,
+      }));
+    } catch (error) {
+      setExpandedTrainerId(null);
+
+      openErrorDialog(
+        error,
+        "خطا در دریافت سانس‌های مربی",
+        "دریافت اطلاعات کلاس‌ها و سانس‌های مربی ناموفق بود."
+      );
+    } finally {
+      setLoadingDetailsTrainerId(null);
+    }
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                                  CREATE                                  */
+  /* ------------------------------------------------------------------------ */
 
   const handleOpenAddModal = () => {
-    setEditingTrainerId(null)
-    setFormData({
-      firstName: '',
-      lastName: '',
-      phone: '',
-      specialty: specialtyOptions[0],
-      subSpecialty: '',
-      studentCount: 0,
-      percentage: '',
-    })
-    setSelectedDays(['شنبه', 'چهارشنبه'])
-    setStartHour(hourOptions[14])
-    setStartMinute(minuteOptions[59])
-    setEndHour(hourOptions[17])
-    setEndMinute(minuteOptions[59])
-    setSelectedLocation(locationOptions[0])
-    setShowFormModal(true)
-  }
+    setEditingTrainerId(null);
+    setEditInitialData(null);
+    setShowFormModal(true);
+  };
 
-  const handleOpenEditModal = (trainer: Trainer) => {
-    setEditingTrainerId(trainer.id)
+  /* ------------------------------------------------------------------------ */
+  /*                                GET BY ID                                 */
+  /* ------------------------------------------------------------------------ */
 
-    const currentSpecialty = specialtyOptions.find((opt) => opt.value === trainer.specialty) || specialtyOptions[0]
-    const cleanPercentage = trainer.percentage ? trainer.percentage.replace('٪', '') : ''
-    const firstSchedule = trainer.schedule[0]
+  const handleOpenEditModal = async (trainerId: number) => {
+    try {
+      const detail = await ApiService.get<TrainerDetailsResponse>(
+        `${TRAINERS_ENDPOINT}/${trainerId}`
+      );
 
-    setFormData({
-      firstName: trainer.firstName,
-      lastName: trainer.lastName,
-      phone: trainer.phone,
-      specialty: currentSpecialty,
-      subSpecialty: trainer.subSpecialty,
-      studentCount: trainer.studentCount,
-      percentage: cleanPercentage,
-    })
+      setEditingTrainerId(trainerId);
 
-    if (firstSchedule) {
-      const daysArr = firstSchedule.days ? firstSchedule.days.split('، ') : []
-      setSelectedDays(daysArr)
+      setEditInitialData({
+        firstName: detail.firstName ?? "",
+        lastName: detail.lastName ?? "",
+        phoneNumber: detail.phoneNumber ?? "",
+        nationalCode: detail.nationalCode ?? "",
+        gender: mapApiGenderToFormGender(detail.gender),
+        specialty: detail.specialty ?? "",
+        baseSalary: detail.baseSalary ?? 0,
+        commissionPercentage: detail.commissionPercentage ?? 0,
+      });
 
-      if (firstSchedule.time) {
-        const [startStr, endStr] = firstSchedule.time.split(' الی ')
-        if (startStr) {
-          const [h, m] = startStr.split(':')
-          setStartHour(hourOptions.find((o) => o.value === h) || hourOptions[0])
-          setStartMinute(minuteOptions.find((o) => o.value === m) || minuteOptions[0])
-        }
-        if (endStr) {
-          const [h, m] = endStr.split(':')
-          setEndHour(hourOptions.find((o) => o.value === h) || hourOptions[0])
-          setEndMinute(minuteOptions.find((o) => o.value === m) || minuteOptions[0])
+      setShowFormModal(true);
+    } catch (error) {
+      openErrorDialog(
+        error,
+        "خطا در دریافت اطلاعات مربی",
+        "دریافت اطلاعات مربی برای ویرایش ناموفق بود."
+      );
+    }
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                              POST / PUT                                  */
+  /* ------------------------------------------------------------------------ */
+
+  const handleTrainerSubmit = async (formData: CreateTrainerDto) => {
+    const isEditing = editingTrainerId !== null;
+
+    try {
+      const createRequest = mapFormToCreateRequest(formData);
+
+      if (isEditing) {
+        const updateRequest: UpdateTrainerRequest = {
+          ...createRequest,
+          trainerActive: true,
+        };
+
+        await ApiService.put<void, UpdateTrainerRequest>(
+          `${TRAINERS_ENDPOINT}/${editingTrainerId}`,
+          updateRequest
+        );
+      } else {
+        const isCreated = await ApiService.post<
+          boolean,
+          CreateTrainerRequest
+        >(TRAINERS_ENDPOINT, createRequest);
+
+        if (!isCreated) {
+          throw new Error("ثبت مربی توسط سرور تأیید نشد.");
         }
       }
 
-      const matchedLoc = locationOptions.find((l) => l.value === firstSchedule.location) || locationOptions[0]
-      setSelectedLocation(matchedLoc)
+      /**
+       * برای اینکه بعد از ثبت/ویرایش، اطلاعات cache شده هم قدیمی نماند.
+       */
+      setTrainerDetailsById({});
+
+      await fetchTrainers();
+
+      setShowFormModal(false);
+      setEditingTrainerId(null);
+      setEditInitialData(null);
+    } catch (error) {
+      openErrorDialog(
+        error,
+        isEditing ? "خطا در ویرایش مربی" : "خطا در ثبت مربی",
+        isEditing ? "ویرایش مربی ناموفق بود." : "ثبت مربی ناموفق بود."
+      );
+
+      /**
+       * فرم Insertcoach در حالت خطا نباید مودال را ببندد.
+       */
+      throw error;
+    }
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /*                                  DELETE                                  */
+  /* ------------------------------------------------------------------------ */
+
+  const confirmDelete = async () => {
+    if (deleteTrainerId === null) {
+      return;
     }
 
-    setShowFormModal(true)
-  }
+    try {
+      setIsDeleting(true);
 
-  const handleCancelForm = () => {
-    setShowFormModal(false)
-  }
+      await ApiService.delete<void>(
+        `${TRAINERS_ENDPOINT}/${deleteTrainerId}`
+      );
 
-  const confirmDelete = () => {
-    if (deleteTrainerId !== null) {
-      setTrainers((prev) => prev.filter((t) => t.id !== deleteTrainerId))
-      setDeleteTrainerId(null)
+      setTrainers((current) =>
+        current.filter((trainer) => trainer.id !== deleteTrainerId)
+      );
+
+      setTrainerDetailsById((current) => {
+        const next = { ...current };
+
+        delete next[deleteTrainerId];
+
+        return next;
+      });
+
+      setDeleteTrainerId(null);
+    } catch (error) {
+      openErrorDialog(
+        error,
+        "خطا در حذف مربی",
+        "حذف مربی ناموفق بود."
+      );
+    } finally {
+      setIsDeleting(false);
     }
-  }
+  };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleCloseFormModal = () => {
+    setShowFormModal(false);
+    setEditingTrainerId(null);
+    setEditInitialData(null);
+  };
 
-    const formattedScheduleDays = selectedDays.length > 0 ? selectedDays.join('، ') : 'تعیین نشده'
-
-    const startTimeString = startHour && startMinute ? `${startHour.value}:${startMinute.value}` : '00:00'
-    const endTimeString = endHour && endMinute ? `${endHour.value}:${endMinute.value}` : '00:00'
-    const formattedTimeString = `${startTimeString} الی ${endTimeString}`
-
-    const formattedLocation = selectedLocation ? selectedLocation.value : 'سالن اصلی'
-
-    if (editingTrainerId) {
-      setTrainers((prev) =>
-        prev.map((t) => {
-          if (t.id === editingTrainerId) {
-            return {
-              ...t,
-              firstName: formData.firstName,
-              lastName: formData.lastName,
-              phone: formData.phone,
-              specialty: formData.specialty ? formData.specialty.value : t.specialty,
-              subSpecialty: formData.subSpecialty,
-              studentCount: Number(formData.studentCount) || 0,
-              percentage: formData.percentage ? `${formData.percentage}٪` : t.percentage,
-              schedule: [
-                {
-                  days: formattedScheduleDays,
-                  time: formattedTimeString,
-                  location: formattedLocation,
-                },
-              ],
-            }
-          }
-          return t
-        })
-      )
-    } else {
-      const newTrainer: Trainer = {
-        id: Date.now(),
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        phone: formData.phone,
-        specialty: formData.specialty ? formData.specialty.value : 'bodybuilding',
-        subSpecialty: formData.subSpecialty,
-        studentCount: Number(formData.studentCount) || 0,
-        percentage: formData.percentage ? `${formData.percentage}٪` : '۰٪',
-        monthlySalary: '۰ تومان',
-        avatar: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=300',
-        schedule: [
-          {
-            days: formattedScheduleDays,
-            time: formattedTimeString,
-            location: formattedLocation,
-          },
-        ],
-      }
-      setTrainers([newTrainer, ...trainers])
-    }
-
-    setShowFormModal(false)
-  }
-
-  const filteredTrainers = trainers.filter((t) => {
-    const fullName = `${t.firstName} ${t.lastName}`.toLowerCase()
-    const matchesCategory =
-      !selectedCategory || selectedCategory.value === 'all' || t.specialty === selectedCategory.value
-    const matchesSearch = !searchQuery || fullName.includes(searchQuery.toLowerCase().trim())
-    return matchesCategory && matchesSearch
-  })
+  /* ------------------------------------------------------------------------ */
+  /*                                    UI                                    */
+  /* ------------------------------------------------------------------------ */
 
   return (
-    <div className="p-6 bg-[var(--primary-subtle)] min-h-screen text-[var(--primary)] dir-rtl" data-role="ADMIN">
+    <div
+      className="min-h-screen bg-[var(--primary-subtle)] p-6 text-[var(--primary)] dir-rtl"
+      data-role="ADMIN"
+    >
       <style jsx global>{`
         .no-scrollbar::-webkit-scrollbar,
         body::-webkit-scrollbar,
@@ -502,22 +597,25 @@ export default function AdminTrainersListPage() {
         }
       `}</style>
 
-      {/* هدر اصلی */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-[var(--primary-mild)]/30 mb-6">
+      {/* Header */}
+      <div className="mb-6 flex flex-col justify-between gap-4 rounded-2xl border border-[var(--primary-mild)]/30 bg-white p-6 shadow-sm md:flex-row md:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--primary)]">مدیریت مربیان باشگاه</h1>
-          <p className="text-sm text-[var(--primary-mild)] mt-1">
-            لیست کامل مربیان، اطلاعات قرارداد، برنامه‌های کلاسی و عملکرد مالی
+          <h1 className="text-2xl font-bold text-[var(--primary)]">
+            مدیریت مربیان باشگاه
+          </h1>
+
+          <p className="mt-1 text-sm text-[var(--primary-mild)]">
+            لیست کامل مربیان، اطلاعات قرارداد، کلاس‌ها و سانس‌های آموزشی
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+        <div className="flex w-full flex-col items-center gap-3 sm:flex-row md:w-auto">
           <button
             type="button"
             onClick={handleOpenAddModal}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[var(--primary)] hover:bg-[var(--primary-mild)] text-white font-medium text-xs px-5 py-3 rounded-xl transition-colors shadow-sm shrink-0"
+            className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-3 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[var(--primary-mild)] sm:w-auto"
           >
-            <HiOutlinePlusCircle className="w-5 h-5 text-white" />
+            <HiOutlinePlusCircle className="h-5 w-5" />
             <span>افزودن مربی جدید</span>
           </button>
 
@@ -526,10 +624,12 @@ export default function AdminTrainersListPage() {
               isSearchable
               isLoading={isPending}
               placeholder="جستجوی نام مربی..."
-              noOptionsMessage={() => (isPending ? 'در حال جستجو...' : 'مربی یافت نشد')}
+              noOptionsMessage={() =>
+                isPending ? "در حال جستجو..." : "مربی یافت نشد"
+              }
               options={searchOptions}
               onInputChange={handleSearchInputChange}
-              onChange={(opt) => setSearchQuery(opt?.value || '')}
+              onChange={(option) => setSearchQuery(option?.value ?? "")}
             />
           </div>
 
@@ -543,7 +643,8 @@ export default function AdminTrainersListPage() {
           </div>
         </div>
       </div>
-     
+
+      {/* Loading */}
       {isLoadingTrainers && (
         <div className="rounded-2xl border border-[var(--primary-mild)]/30 bg-white p-8 text-center">
           <p className="text-sm text-[var(--primary-mild)]">
@@ -552,198 +653,299 @@ export default function AdminTrainersListPage() {
         </div>
       )}
 
-      {apiError && (
-        <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-sm text-red-600">
-          {apiError}
-        </div>
-      )}
-      {!isLoadingTrainers && !apiError && (
+      {/* Trainers list */}
+      {!isLoadingTrainers && (
         <div className="space-y-4">
-          {/* لیست کارت‌های مربیان */}
-          <div className="space-y-4">
-            {filteredTrainers.length > 0 ? (
-              filteredTrainers.map((trainer) => {
-                const isExpanded = expandedTrainerId === trainer.id
-                const fullName = `${trainer.firstName} ${trainer.lastName}`
+          {filteredTrainers.length > 0 ? (
+            filteredTrainers.map((trainer) => {
+              const isExpanded = expandedTrainerId === trainer.id;
+              const isDetailsLoading =
+                loadingDetailsTrainerId === trainer.id;
 
-                return (
-                  <div
-                    key={trainer.id}
-                    className="bg-white rounded-2xl border border-[var(--primary-mild)]/30 shadow-sm hover:shadow-md transition-all overflow-hidden"
-                  >
-                    <div className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[var(--primary-mild)]/40 shrink-0 shadow-inner bg-[var(--primary-subtle)]">
-                          <Image
-                            src={trainer.avatar}
-                            alt={fullName}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-[var(--primary)]">{fullName}</h3>
-                          <p className="text-xs text-[var(--primary-mild)] flex items-center gap-1 mt-1">
-                            <HiOutlinePhone className="w-4 h-4 text-[var(--primary-mild)]" />
-                            <span>{trainer.phone}</span>
-                          </p>
-                        </div>
+              const trainerDetails = trainerDetailsById[trainer.id];
+
+              const fullName = `${trainer.firstName} ${trainer.lastName}`;
+
+              return (
+                <div
+                  key={trainer.id}
+                  className="overflow-hidden rounded-2xl border border-[var(--primary-mild)]/30 bg-white shadow-sm transition-all hover:shadow-md"
+                >
+                  <div className="flex flex-col items-start justify-between gap-4 p-5 md:flex-row md:items-center">
+                    <div className="flex items-center gap-4">
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-[var(--primary-mild)]/40 bg-[var(--primary-subtle)] shadow-inner">
+                        <Image
+                          src={trainer.avatar}
+                          alt={fullName}
+                          fill
+                          className="object-cover"
+                        />
                       </div>
 
-                      <div className="flex items-center gap-2 w-full md:w-auto justify-end pt-2 md:pt-0 border-t md:border-t-0 border-[var(--primary-mild)]/20">
-                        <button
-                          type="button"
-                          onClick={() => toggleExpand(trainer.id)}
-                          className="text-xs font-semibold text-[var(--primary-mild)] hover:text-[var(--primary)] bg-[var(--primary-subtle)] hover:bg-[var(--primary-subtle)]/80 px-4 py-2.5 rounded-xl transition-all flex items-center gap-1.5 border border-[var(--primary-mild)]/30"
-                        >
-                          <span>{isExpanded ? 'بستن جزئیات' : 'جزئیات تکمیلی'}</span>
-                          {isExpanded ? (
-                            <HiOutlineChevronUp className="w-4 h-4 text-[var(--primary-deep)]" />
-                          ) : (
-                            <HiOutlineChevronDown className="w-4 h-4" />
-                          )}
-                        </button>
+                      <div>
+                        <h3 className="text-lg font-bold text-[var(--primary)]">
+                          {fullName}
+                        </h3>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditModal(trainer)}
-                          className="p-2.5 text-[var(--primary-mild)] hover:text-[var(--primary)] bg-[var(--primary-subtle)] hover:bg-[var(--primary-subtle)]/80 border border-[var(--primary-mild)]/30 rounded-xl transition-all"
-                          title="ویرایش"
-                        >
-                          <HiOutlinePencil className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTrainerId(trainer.id)}
-                          className="p-2.5 text-[var(--primary-deep)] bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl transition-all"
-                          title="حذف"
-                        >
-                          <HiOutlineTrash className="w-4 h-4" />
-                        </button>
+                        <p className="mt-1 flex items-center gap-1 text-xs text-[var(--primary-mild)]">
+                          <HiOutlinePhone className="h-4 w-4" />
+                          <span>{trainer.phone}</span>
+                        </p>
                       </div>
                     </div>
 
-                    {isExpanded && (
-                      <div className="border-t border-[var(--primary-mild)]/30 p-6 bg-[var(--primary-subtle)]/40 space-y-4 animate-fadeIn">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                          <div className="bg-white p-3.5 rounded-xl border border-[var(--primary-mild)]/30 flex items-center gap-3">
-                            <HiOutlineAcademicCap className="w-6 h-6 text-[var(--primary-mild)] shrink-0" />
-                            <div>
-                              <span className="text-[var(--primary-mild)] block text-[11px]">رشته / زیرمجموعه:</span>
-                              <span className="font-semibold text-[var(--primary)]">
-                                {trainer.subSpecialty || trainer.specialty}
-                              </span>
-                            </div>
-                          </div>
+                    <div className="flex w-full items-center justify-end gap-2 border-t border-[var(--primary-mild)]/20 pt-2 md:w-auto md:border-t-0 md:pt-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleToggleTrainerDetails(trainer.id)
+                        }
+                        className="flex items-center gap-1.5 rounded-xl border border-[var(--primary-mild)]/30 bg-[var(--primary-subtle)] px-4 py-2.5 text-xs font-semibold text-[var(--primary-mild)] transition-all hover:bg-[var(--primary-subtle)]/80 hover:text-[var(--primary)]"
+                      >
+                        <span>
+                          {isExpanded ? "بستن جزئیات" : "جزئیات و سانس‌ها"}
+                        </span>
 
-                          <div className="bg-white p-3.5 rounded-xl border border-[var(--primary-mild)]/30 flex items-center gap-3">
-                            <HiOutlineUsers className="w-6 h-6 text-[var(--primary-mild)] shrink-0" />
-                            <div>
-                              <span className="text-[var(--primary-mild)] block text-[11px]">تعداد شاگردان:</span>
-                              <span className="font-semibold text-[var(--primary)]">{trainer.studentCount} نفر</span>
-                            </div>
-                          </div>
+                        {isExpanded ? (
+                          <HiOutlineChevronUp className="h-4 w-4 text-[var(--primary-deep)]" />
+                        ) : (
+                          <HiOutlineChevronDown className="h-4 w-4" />
+                        )}
+                      </button>
 
-                          <div className="bg-white p-3.5 rounded-xl border border-[var(--primary-mild)]/30 flex items-center gap-3">
-                            <HiOutlineCash className="w-6 h-6 text-[var(--primary-mild)] shrink-0" />
-                            <div>
-                              <span className="text-[var(--primary-mild)] block text-[11px]">درصد قرارداد:</span>
-                              <span className="font-semibold text-[var(--primary)]">{trainer.percentage}</span>
-                            </div>
-                          </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(trainer.id)}
+                        className="rounded-xl border border-[var(--primary-mild)]/30 bg-[var(--primary-subtle)] p-2.5 text-[var(--primary-mild)] transition-all hover:bg-[var(--primary-subtle)]/80 hover:text-[var(--primary)]"
+                        title="ویرایش"
+                      >
+                        <HiOutlinePencil className="h-4 w-4" />
+                      </button>
 
-                          <div className="bg-white p-3.5 rounded-xl border border-[var(--primary-mild)]/30 flex items-center gap-3">
-                            <HiOutlineCash className="w-6 h-6 text-[var(--primary-deep)] shrink-0" />
-                            <div>
-                              <span className="text-[var(--primary-mild)] block text-[11px]">حقوق/کارکرد ماه جاری:</span>
-                              <span className="font-bold text-[var(--primary-deep)]">{trainer.monthlySalary}</span>
-                            </div>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTrainerId(trainer.id)}
+                        className="rounded-xl border border-red-200 bg-red-50 p-2.5 text-[var(--primary-deep)] transition-all hover:bg-red-100"
+                        title="حذف"
+                      >
+                        <HiOutlineTrash className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded details */}
+                  {isExpanded && (
+                    <div className="space-y-4 border-t border-[var(--primary-mild)]/30 bg-[var(--primary-subtle)]/40 p-6">
+                      <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 md:grid-cols-4">
+                        <div className="flex items-center gap-3 rounded-xl border border-[var(--primary-mild)]/30 bg-white p-3.5">
+                          <HiOutlineAcademicCap className="h-6 w-6 shrink-0 text-[var(--primary-mild)]" />
+                          <div>
+                            <span className="block text-[11px] text-[var(--primary-mild)]">
+                              تخصص:
+                            </span>
+                            <span className="font-semibold text-[var(--primary)]">
+                              {trainer.specialty}
+                            </span>
                           </div>
                         </div>
 
-                        <div className="bg-white p-4 rounded-xl border border-[var(--primary-mild)]/30 space-y-2">
-                          <h4 className="text-xs font-bold text-[var(--primary)] flex items-center gap-1.5">
-                            <HiOutlineClock className="w-4 h-4 text-[var(--primary-mild)]" />
-                            <span>ساعات و سانس‌های کلاسی مربی:</span>
-                          </h4>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
-                            {trainer.schedule.map((sch, idx) => (
-                              <div
-                                key={idx}
-                                className="bg-[var(--primary-subtle)]/60 p-2.5 rounded-lg border border-[var(--primary-mild)]/20 flex flex-col gap-1 text-[var(--primary)]"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-semibold flex items-center gap-1">
-                                    <HiOutlineCalendar className="w-3.5 h-3.5 text-[var(--primary-mild)]" />
-                                    {sch.days}
-                                  </span>
-                                  <span className="text-[var(--primary-mild)] font-mono">{sch.time}</span>
-                                </div>
-                                <span className="text-[11px] text-[var(--primary-mild)] flex items-center gap-1">
-                                  <HiOutlineOfficeBuilding className="w-3.5 h-3.5" />
-                                  {sch.location}
-                                </span>
-                              </div>
-                            ))}
+                        <div className="flex items-center gap-3 rounded-xl border border-[var(--primary-mild)]/30 bg-white p-3.5">
+                          <HiOutlineUsers className="h-6 w-6 shrink-0 text-[var(--primary-mild)]" />
+                          <div>
+                            <span className="block text-[11px] text-[var(--primary-mild)]">
+                              تعداد شاگردان:
+                            </span>
+                            <span className="font-semibold text-[var(--primary)]">
+                              {toPersianNumber(
+                                trainerDetails?.totalStudents ?? 0
+                              )}{" "}
+                              نفر
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 rounded-xl border border-[var(--primary-mild)]/30 bg-white p-3.5">
+                          <HiOutlineAcademicCap className="h-6 w-6 shrink-0 text-[var(--primary-mild)]" />
+                          <div>
+                            <span className="block text-[11px] text-[var(--primary-mild)]">
+                              کلاس‌های فعال:
+                            </span>
+                            <span className="font-semibold text-[var(--primary)]">
+                              {toPersianNumber(
+                                trainerDetails?.totalActiveClasses ?? 0
+                              )}{" "}
+                              کلاس
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 rounded-xl border border-[var(--primary-mild)]/30 bg-white p-3.5">
+                          <HiOutlineCash className="h-6 w-6 shrink-0 text-[var(--primary-deep)]" />
+                          <div>
+                            <span className="block text-[11px] text-[var(--primary-mild)]">
+                              حقوق پایه / پورسانت:
+                            </span>
+                            <span className="font-bold text-[var(--primary-deep)]">
+                              {formatMoney(trainer.baseSalary)}
+                              {" - "}
+                              {formatPercentage(
+                                trainer.commissionPercentage
+                              )}
+                            </span>
                           </div>
                         </div>
                       </div>
-                    )}
-                  </div>
-                )
-              })
-            ) : (
-              <div className="bg-white p-12 rounded-2xl border border-[var(--primary-mild)]/30 text-center space-y-3">
-                <p className="text-[var(--primary)] font-bold">مربی با این مشخصات یافت نشد.</p>
-                <p className="text-xs text-[var(--primary-mild)]">لطفاً عبارت جستجو یا دسته‌بندی ورزشی را تغییر دهید.</p>
-              </div>
-            )}
-          </div>
+
+                      {/* Real schedules from GET /api/trainers/{id} */}
+                      <div className="space-y-3 rounded-xl border border-[var(--primary-mild)]/30 bg-white p-4">
+                        <h4 className="flex items-center gap-1.5 text-xs font-bold text-[var(--primary)]">
+                          <HiOutlineClock className="h-4 w-4 text-[var(--primary-mild)]" />
+                          <span>کلاس‌ها و سانس‌های مربی:</span>
+                        </h4>
+
+                        {isDetailsLoading ? (
+                          <p className="py-5 text-center text-xs text-[var(--primary-mild)]">
+                            در حال دریافت کلاس‌ها و سانس‌های مربی...
+                          </p>
+                        ) : trainerDetails?.classes?.length ? (
+                          <div className="space-y-3 pt-1">
+                            {trainerDetails.classes.map((gymClass) => (
+                              <div
+                                key={gymClass.gymClassId}
+                                className="rounded-xl border border-[var(--primary-mild)]/20 bg-[var(--primary-subtle)]/50 p-3"
+                              >
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                  <div>
+                                    <p className="text-xs font-bold text-[var(--primary)]">
+                                      {gymClass.title}
+                                    </p>
+
+                                    <p className="mt-1 text-[11px] text-[var(--primary-mild)]">
+                                      رشته: {gymClass.sportName}
+                                      {" | "}
+                                      ظرفیت:{" "}
+                                      {toPersianNumber(gymClass.capacity)} نفر
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {gymClass.schedules?.length ? (
+                                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    {gymClass.schedules.map(
+                                      (schedule, index) => (
+                                        <div
+                                          key={`${gymClass.gymClassId}-${schedule.dayOfWeek}-${index}`}
+                                          className="rounded-lg border border-[var(--primary-mild)]/20 bg-white p-2.5 text-xs text-[var(--primary)]"
+                                        >
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span className="flex items-center gap-1 font-semibold">
+                                              <HiOutlineCalendar className="h-3.5 w-3.5 text-[var(--primary-mild)]" />
+                                              {
+                                                DAY_OF_WEEK_LABELS[
+                                                  schedule.dayOfWeek
+                                                ]
+                                              }
+                                            </span>
+
+                                            <span className="font-mono text-[var(--primary-mild)]">
+                                              {schedule.startTime} الی{" "}
+                                              {schedule.endTime}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="py-2 text-center text-[11px] text-[var(--primary-mild)]">
+                                    برای این کلاس هنوز سانسی ثبت نشده است.
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="py-5 text-center text-xs text-[var(--primary-mild)]">
+                            این مربی در حال حاضر کلاس یا سانس فعالی ندارد.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="space-y-3 rounded-2xl border border-[var(--primary-mild)]/30 bg-white p-12 text-center">
+              <p className="font-bold text-[var(--primary)]">
+                مربی با این مشخصات یافت نشد.
+              </p>
+
+              <p className="text-xs text-[var(--primary-mild)]">
+                لطفاً عبارت جستجو یا دسته‌بندی ورزشی را تغییر دهید.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
-
-
-      {/* مودال افزودن / ویرایش مربی */}
+      {/* Add / edit modal */}
       <TrainerFormModal
         isOpen={showFormModal}
-        onClose={() => setShowFormModal(false)}
-        onSubmit={handleCreateTrainer}
+        mode={editingTrainerId !== null ? "edit" : "create"}
+        initialData={editInitialData}
+        onSubmit={handleTrainerSubmit}
+        onClose={handleCloseFormModal}
       />
 
-      {/* دیالوگ تأیید حذف */}
+      {/* Central API error dialog */}
+      <ApiErrorDialog
+        isOpen={errorDialog.isOpen}
+        title={errorDialog.title}
+        message={errorDialog.message}
+        onClose={closeErrorDialog}
+      />
+
+      {/* Delete confirmation dialog */}
       {deleteTrainerId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full border border-[var(--primary-mild)]/30 shadow-2xl text-center space-y-4">
-            <div className="w-12 h-12 bg-red-100 text-[var(--primary-deep)] rounded-full flex items-center justify-center mx-auto">
-              <HiOutlineExclamation className="w-6 h-6" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-[var(--primary-mild)]/30 bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-[var(--primary-deep)]">
+              <HiOutlineExclamation className="h-6 w-6" />
             </div>
+
             <div>
-              <h3 className="text-base font-bold text-[var(--primary)]">حذف مربی</h3>
-              <p className="text-xs text-[var(--primary-mild)] mt-1">
+              <h3 className="text-base font-bold text-[var(--primary)]">
+                حذف مربی
+              </h3>
+
+              <p className="mt-1 text-xs text-[var(--primary-mild)]">
                 آیا از حذف این مربی اطمینان دارید؟ این عملیات قابل بازگشت نیست.
               </p>
             </div>
+
             <div className="flex justify-center gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setDeleteTrainerId(null)}
-                className="px-4 py-2 rounded-xl border border-[var(--primary-mild)]/40 text-[var(--primary-mild)] font-medium text-xs hover:bg-[var(--primary-subtle)] transition-colors"
+                disabled={isDeleting}
+                className="rounded-xl border border-[var(--primary-mild)]/40 px-4 py-2 text-xs font-medium text-[var(--primary-mild)] transition-colors hover:bg-[var(--primary-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 انصراف
               </button>
+
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="px-4 py-2 rounded-xl bg-[var(--primary-deep)] hover:opacity-90 text-white font-medium text-xs transition-colors"
+                disabled={isDeleting}
+                className="rounded-xl bg-[var(--primary-deep)] px-4 py-2 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                حذف شود
+                {isDeleting ? "در حال حذف..." : "حذف شود"}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

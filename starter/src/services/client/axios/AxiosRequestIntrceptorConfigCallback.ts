@@ -1,10 +1,16 @@
-import type { InternalAxiosRequestConfig } from 'axios'
+import type { InternalAxiosRequestConfig } from "axios";
+import { getSession } from "next-auth/react";
 
-const AxiosRequestIntrceptorConfigCallback = (
-    config: InternalAxiosRequestConfig,
-) => {
-    /** handle config mutatation here before request to server */
-    return config
-}
+const AxiosRequestIntrceptorConfigCallback = async (
+  config: InternalAxiosRequestConfig
+): Promise<InternalAxiosRequestConfig> => {
+  const session = await getSession();
 
-export default AxiosRequestIntrceptorConfigCallback
+  if (session?.accessToken) {
+    config.headers.Authorization = `Bearer ${session.accessToken}`;
+  }
+
+  return config;
+};
+
+export default AxiosRequestIntrceptorConfigCallback;
