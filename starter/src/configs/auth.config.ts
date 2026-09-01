@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from 'next-auth'
-import { apiLogin } from '@/services/client/AuthService'
+import { apiLoginServer } from '@/services/client/AuthServerServices'
+
 import Credentials from 'next-auth/providers/credentials'
 import Github from 'next-auth/providers/github'
 import Google from 'next-auth/providers/google'
@@ -86,10 +87,11 @@ export default {
                 }
 
                 try {
-    const loginResponse = await apiLogin({
-        nationalCode: nationalCode.trim(),
-        code: code.trim(),
-    })
+    const loginResponse = await apiLoginServer({
+    nationalCode: nationalCode.trim(),
+    code: code.trim(),
+})
+
 
     console.log('OTP API login response:', loginResponse)
 
