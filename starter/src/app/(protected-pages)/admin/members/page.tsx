@@ -6,11 +6,9 @@ import {
   HiOutlineAcademicCap,
   HiOutlineCalendar,
   HiOutlineCheckCircle,
-  HiOutlineClock,
   HiOutlineExclamationCircle,
   HiOutlineEye,
   HiOutlinePencilAlt,
-  HiOutlinePhone,
   HiOutlineRefresh,
   HiOutlineTrash,
   HiOutlineUser,
@@ -21,7 +19,7 @@ import {
 import { FaDumbbell } from "react-icons/fa";
 
 import Select from "@/components/ui/Select";
-import DatePicker from "@/components/ui/DatePicker";
+import DatePicker from "@/components/ui/DatePicker/ConvertorDatePicker";
 
 import ApiService from "@/services/client/ApiService";
 
@@ -60,9 +58,6 @@ interface SelectOption {
   label: string;
 }
 
-/**
- * GET /members
- */
 interface MemberListItemResponse {
   id: number;
   firstName: string;
@@ -74,9 +69,6 @@ interface MemberListItemResponse {
   joinDate: string;
 }
 
-/**
- * POST /members
- */
 interface CreateMemberRequest {
   firstName: string;
   lastName: string;
@@ -88,9 +80,6 @@ interface CreateMemberRequest {
   birthDate: string;
 }
 
-/**
- * POST /members response
- */
 interface MemberCreatedResponse {
   id: number;
   firstName: string;
@@ -102,9 +91,6 @@ interface MemberCreatedResponse {
   joinDate: string;
 }
 
-/**
- * GET /members/{id}
- */
 interface MemberResponse {
   id: number;
   firstName: string;
@@ -116,16 +102,10 @@ interface MemberResponse {
   joinDate: string;
 }
 
-/**
- * PUT /members/{id}
- */
 interface UpdateMemberRequest extends CreateMemberRequest {
   isActive: boolean;
 }
 
-/**
- * GET /members/{id}/details -> subscriptions[]
- */
 interface MemberSubscriptionResponse {
   subscriptionId: number;
   packageName: string;
@@ -137,26 +117,17 @@ interface MemberSubscriptionResponse {
   status: SubscriptionStatus;
 }
 
-/**
- * GET /members/{id}/details -> courses[].schedules[]
- */
 interface MemberScheduleResponse {
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;
 }
 
-/**
- * GET /members/{id}/details -> courses[].attendances[]
- */
 interface MemberAttendanceResponse {
   attendanceDate: string;
   isPresent: boolean;
 }
 
-/**
- * GET /members/{id}/details -> courses[]
- */
 interface MemberCourseResponse {
   enrollmentId: number;
   classId: number;
@@ -168,9 +139,6 @@ interface MemberCourseResponse {
   attendances: MemberAttendanceResponse[];
 }
 
-/**
- * GET /members/{id}/details
- */
 interface MemberDetailsResponse extends MemberResponse {
   medicalNotes: string | null;
   emergencyPhone: string | null;
@@ -179,9 +147,6 @@ interface MemberDetailsResponse extends MemberResponse {
   courses: MemberCourseResponse[];
 }
 
-/**
- * دادهٔ مورد استفاده در لیست UI
- */
 interface MemberTableItem {
   id: number;
   firstName: string;
@@ -194,12 +159,6 @@ interface MemberTableItem {
   joinDate: string;
 }
 
-/**
- * دادهٔ فرم ثبت و ویرایش.
- *
- * birthDate در state به‌شکل شمسی نگهداری می‌شود،
- * ولی قبل از ارسال به API به تاریخ میلادی تبدیل خواهد شد.
- */
 interface MemberFormData {
   firstName: string;
   lastName: string;
@@ -216,17 +175,10 @@ interface MemberFormData {
 /*                                  Constants                                 */
 /* -------------------------------------------------------------------------- */
 
-const MEMBERS_ENDPOINT = "/members";
-
+const MEMBERS_ENDPOINT = "api/members";
 const GENDER_OPTIONS: SelectOption[] = [
-  {
-    value: "Male",
-    label: "مرد",
-  },
-  {
-    value: "Female",
-    label: "زن",
-  },
+  { value: "Male", label: "مرد" },
+  { value: "Female", label: "زن" },
 ];
 
 const INITIAL_FORM_DATA: MemberFormData = {
@@ -241,51 +193,20 @@ const INITIAL_FORM_DATA: MemberFormData = {
   isActive: true,
 };
 
-const DAY_OF_WEEK_LABELS: Record<string, string> = {
-  Saturday: "شنبه",
-  Sunday: "یکشنبه",
-  Monday: "دوشنبه",
-  Tuesday: "سه‌شنبه",
-  Wednesday: "چهارشنبه",
-  Thursday: "پنج‌شنبه",
-  Friday: "جمعه",
-};
-
 /* -------------------------------------------------------------------------- */
 /*                                  Helpers                                   */
 /* -------------------------------------------------------------------------- */
 
-/**
- * تبدیل مقدار DatePicker شمسی به تاریخ میلادی مورد نیاز API.
- *
- * مثال:
- * 1403/02/01 -> 2024-04-20
- */
-const toGregorianDateString = (
-  jalaliDate: DateObject | null
-): string => {
-  if (!jalaliDate) {
-    return "";
-  }
+const toGregorianDateString = (jalaliDate: DateObject | null): string => {
+  if (!jalaliDate) return "";
 
   return new DateObject(jalaliDate)
     .convert(gregorian, gregorian_en)
     .format("YYYY-MM-DD");
 };
 
-/**
- * تبدیل تاریخ میلادی دریافتی از API به مقدار قابل استفاده
- * در DatePicker شمسی، برای حالت ویرایش.
- *
- * مثال:
- * 2024-04-20 -> 1403/02/01
- */
-const toJalaliDateObject = (
-  gregorianDateString?: string | null
-): DateObject | null => {
-  if (!gregorianDateString) {
-    return null;
-  }
+const toJalaliDateObject = (gregorianDateString?: string | null): DateObject | null => {
+  if (!gregorianDateString) return null;
 
   return new DateObject({
     date: gregorianDateString,
@@ -296,9 +217,7 @@ const toJalaliDateObject = (
 };
 
 const formatDate = (date?: string | null): string => {
-  if (!date) {
-    return "ثبت نشده";
-  }
+  if (!date) return "ثبت نشده";
 
   try {
     return new Intl.DateTimeFormat("fa-IR", {
@@ -319,13 +238,7 @@ const getGenderLabel = (gender: ApiGender): string => {
   return gender === "Female" ? "زن" : "مرد";
 };
 
-const getDayOfWeekLabel = (day: DayOfWeek): string => {
-  return DAY_OF_WEEK_LABELS[day] ?? day;
-};
-
-const mapMemberToTableItem = (
-  member: MemberListItemResponse
-): MemberTableItem => {
+const mapMemberToTableItem = (member: MemberListItemResponse): MemberTableItem => {
   return {
     id: member.id,
     firstName: member.firstName ?? "",
@@ -339,9 +252,7 @@ const mapMemberToTableItem = (
   };
 };
 
-const mapFormToCreateRequest = (
-  formData: MemberFormData
-): CreateMemberRequest => {
+const mapFormToCreateRequest = (formData: MemberFormData): CreateMemberRequest => {
   const gregorianBirthDate = toGregorianDateString(formData.birthDate);
 
   if (!gregorianBirthDate) {
@@ -368,25 +279,17 @@ const getSubscriptionStatus = (status: SubscriptionStatus) => {
         label: "فعال / پرداخت شده",
         className: "border-emerald-200 bg-emerald-50 text-emerald-700",
       };
-
     case "PendingPayment":
       return {
         label: "در انتظار پرداخت",
         className: "border-amber-200 bg-amber-50 text-amber-700",
       };
-
     case "Expired":
-      return {
-        label: "منقضی شده",
-        className: "border-rose-200 bg-rose-50 text-rose-700",
-      };
-
     case "Cancelled":
       return {
-        label: "لغو شده",
+        label: status === "Expired" ? "منقضی شده" : "لغو شده",
         className: "border-rose-200 bg-rose-50 text-rose-700",
       };
-
     default:
       return {
         label: status || "نامشخص",
@@ -408,14 +311,12 @@ export default function MembersManagementPage() {
 
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
-  const [formData, setFormData] =
-    useState<MemberFormData>(INITIAL_FORM_DATA);
+  const [formData, setFormData] = useState<MemberFormData>(INITIAL_FORM_DATA);
   const [isSaving, setIsSaving] = useState(false);
 
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const [memberDetails, setMemberDetails] =
-    useState<MemberDetailsResponse | null>(null);
+  const [memberDetails, setMemberDetails] = useState<MemberDetailsResponse | null>(null);
 
   const [deleteMemberId, setDeleteMemberId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -425,10 +326,6 @@ export default function MembersManagementPage() {
     title: "",
     message: "",
   });
-
-  /* ------------------------------------------------------------------------ */
-  /*                              Error handling                              */
-  /* ------------------------------------------------------------------------ */
 
   const showError = (title: string, error: unknown) => {
     const message =
@@ -444,26 +341,18 @@ export default function MembersManagementPage() {
   };
 
   const closeErrorDialog = () => {
-    setErrorDialog((previous) => ({
-      ...previous,
-      isOpen: false,
-    }));
+    setErrorDialog((previous) => ({ ...previous, isOpen: false }));
   };
 
-  /* ------------------------------------------------------------------------ */
-  /*                          GET /members - List                             */
-  /* ------------------------------------------------------------------------ */
+  /* -------------------------------------------------------------------------- */
+  /*                              API Calls Integrated                          */
+  /* -------------------------------------------------------------------------- */
 
+  // ۱. دریافت لیست اعضا
   const fetchMembers = useCallback(async () => {
     try {
       setIsLoadingMembers(true);
-
-      const response =
-        await ApiService.fetchDataWithAxios<MemberListItemResponse[]>({
-          url: MEMBERS_ENDPOINT,
-          method: "get",
-        });
-
+      const response = await ApiService.get<MemberListItemResponse[]>(MEMBERS_ENDPOINT);
       setMembers(Array.isArray(response) ? response.map(mapMemberToTableItem) : []);
     } catch (error) {
       setMembers([]);
@@ -477,78 +366,24 @@ export default function MembersManagementPage() {
     fetchMembers();
   }, [fetchMembers]);
 
-  /* ------------------------------------------------------------------------ */
-  /*                                  Search                                  */
-  /* ------------------------------------------------------------------------ */
-
-  const filteredMembers = useMemo(() => {
-    const searchValue = searchTerm.trim().toLowerCase();
-
-    if (!searchValue) {
-      return members;
-    }
-
-    return members.filter((member) => {
-      return (
-        member.fullName.toLowerCase().includes(searchValue) ||
-        member.phoneNumber.includes(searchValue) ||
-        member.nationalCode.includes(searchValue)
-      );
-    });
-  }, [members, searchTerm]);
-
-  /* ------------------------------------------------------------------------ */
-  /*                          Create member modal                             */
-  /* ------------------------------------------------------------------------ */
-
-  const openCreateModal = () => {
-    setEditingMemberId(null);
-    setFormData(INITIAL_FORM_DATA);
-    setIsFormModalOpen(true);
-  };
-
-  const closeFormModal = () => {
-    if (isSaving) {
-      return;
-    }
-
-    setIsFormModalOpen(false);
-    setEditingMemberId(null);
-    setFormData(INITIAL_FORM_DATA);
-  };
-
-  /* ------------------------------------------------------------------------ */
-  /*                    GET member + details for editing                      */
-  /* ------------------------------------------------------------------------ */
-
+  // ۲. باز کردن مدال ویرایش و دریافت اطلاعات کاربر
   const openEditModal = async (memberId: number) => {
     try {
       setIsLoadingDetails(true);
 
       const [member, details] = await Promise.all([
-        ApiService.fetchDataWithAxios<MemberResponse>({
-          url: `${MEMBERS_ENDPOINT}/${memberId}`,
-          method: "get",
-        }),
-
-        ApiService.fetchDataWithAxios<MemberDetailsResponse>({
-          url: `${MEMBERS_ENDPOINT}/${memberId}/details`,
-          method: "get",
-        }),
+        ApiService.get<MemberResponse>(`${MEMBERS_ENDPOINT}/${memberId}`),
+        ApiService.get<MemberDetailsResponse>(`${MEMBERS_ENDPOINT}/${memberId}/details`),
       ]);
 
       setEditingMemberId(memberId);
-
       setFormData({
         firstName: member.firstName ?? "",
         lastName: member.lastName ?? "",
         phoneNumber: member.phoneNumber ?? "",
         nationalCode: member.nationalCode ?? "",
         gender: member.gender ?? "Male",
-
-        // تاریخ میلادی API => تاریخ شمسی DatePicker
         birthDate: toJalaliDateObject(member.birthDate),
-
         emergencyPhone: details.emergencyPhone ?? "",
         medicalNotes: details.medicalNotes ?? "",
         isActive: details.isActive ?? true,
@@ -562,56 +397,32 @@ export default function MembersManagementPage() {
     }
   };
 
-  /* ------------------------------------------------------------------------ */
-  /*                            POST / PUT - Save                             */
-  /* ------------------------------------------------------------------------ */
-
-  const handleSaveMember = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  // ۳. ایجاد یا ویرایش ورزشکار
+  const handleSaveMember = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     try {
       setIsSaving(true);
-
       const createPayload = mapFormToCreateRequest(formData);
 
       if (editingMemberId === null) {
-        await ApiService.fetchDataWithAxios<
-          MemberCreatedResponse,
-          CreateMemberRequest
-        >({
-          url: MEMBERS_ENDPOINT,
-          method: "post",
-          data: createPayload,
-        });
+        // ایجاد جدید
+        await ApiService.post<MemberCreatedResponse>(MEMBERS_ENDPOINT, createPayload);
       } else {
+        // ویرایش
         const updatePayload: UpdateMemberRequest = {
           ...createPayload,
           isActive: formData.isActive,
         };
 
-        const isUpdated = await ApiService.fetchDataWithAxios<
-          boolean,
-          UpdateMemberRequest
-        >({
-          url: `${MEMBERS_ENDPOINT}/${editingMemberId}`,
-          method: "put",
-          data: updatePayload,
-        });
-
-        if (!isUpdated) {
-          throw new Error("ویرایش ورزشکار توسط سرور تأیید نشد.");
-        }
+        await ApiService.put<boolean>(`${MEMBERS_ENDPOINT}/${editingMemberId}`, updatePayload);
       }
 
       await fetchMembers();
       closeFormModal();
     } catch (error) {
       showError(
-        editingMemberId === null
-          ? "خطا در ثبت ورزشکار"
-          : "خطا در ویرایش ورزشکار",
+        editingMemberId === null ? "خطا در ثبت ورزشکار" : "خطا در ویرایش ورزشکار",
         error
       );
     } finally {
@@ -619,21 +430,16 @@ export default function MembersManagementPage() {
     }
   };
 
-  /* ------------------------------------------------------------------------ */
-  /*                       GET /members/{id}/details                          */
-  /* ------------------------------------------------------------------------ */
-
+  // ۴. دریافت جزئیات کامل ورزشکار
   const openDetailsModal = async (memberId: number) => {
     try {
       setIsLoadingDetails(true);
       setMemberDetails(null);
       setIsDetailsModalOpen(true);
 
-      const response =
-        await ApiService.fetchDataWithAxios<MemberDetailsResponse>({
-          url: `${MEMBERS_ENDPOINT}/${memberId}/details`,
-          method: "get",
-        });
+      const response = await ApiService.get<MemberDetailsResponse>(
+        `${MEMBERS_ENDPOINT}/${memberId}/details`
+      );
 
       setMemberDetails(response);
     } catch (error) {
@@ -644,32 +450,14 @@ export default function MembersManagementPage() {
     }
   };
 
-  const closeDetailsModal = () => {
-    setIsDetailsModalOpen(false);
-    setMemberDetails(null);
-  };
-
-  /* ------------------------------------------------------------------------ */
-  /*                        DELETE /members/{id}                              */
-  /* ------------------------------------------------------------------------ */
-
+  // ۵. غیرفعال‌سازی / حذف ورزشکار
   const confirmDeactivateMember = async () => {
-    if (deleteMemberId === null) {
-      return;
-    }
+    if (deleteMemberId === null) return;
 
     try {
       setIsDeleting(true);
 
-      const isDeactivated =
-        await ApiService.fetchDataWithAxios<boolean>({
-          url: `${MEMBERS_ENDPOINT}/${deleteMemberId}`,
-          method: "delete",
-        });
-
-      if (!isDeactivated) {
-        throw new Error("غیرفعال‌سازی ورزشکار توسط سرور تأیید نشد.");
-      }
+      await ApiService.delete<boolean>(`${MEMBERS_ENDPOINT}/${deleteMemberId}`);
 
       setMembers((currentMembers) =>
         currentMembers.filter((member) => member.id !== deleteMemberId)
@@ -683,9 +471,37 @@ export default function MembersManagementPage() {
     }
   };
 
-  /* ------------------------------------------------------------------------ */
-  /*                                    UI                                    */
-  /* ------------------------------------------------------------------------ */
+  const filteredMembers = useMemo(() => {
+    const searchValue = searchTerm.trim().toLowerCase();
+
+    if (!searchValue) return members;
+
+    return members.filter((member) => {
+      return (
+        member.fullName.toLowerCase().includes(searchValue) ||
+        member.phoneNumber.includes(searchValue) ||
+        member.nationalCode.includes(searchValue)
+      );
+    });
+  }, [members, searchTerm]);
+
+  const openCreateModal = () => {
+    setEditingMemberId(null);
+    setFormData(INITIAL_FORM_DATA);
+    setIsFormModalOpen(true);
+  };
+
+  const closeFormModal = () => {
+    if (isSaving) return;
+    setIsFormModalOpen(false);
+    setEditingMemberId(null);
+    setFormData(INITIAL_FORM_DATA);
+  };
+
+  const closeDetailsModal = () => {
+    setIsDetailsModalOpen(false);
+    setMemberDetails(null);
+  };
 
   return (
     <div className="min-h-screen p-5 md:p-8" dir="rtl">
@@ -695,7 +511,6 @@ export default function MembersManagementPage() {
           <h1 className="text-2xl font-black text-[var(--primary)] md:text-3xl">
             مدیریت ورزشکاران
           </h1>
-
           <p className="mt-2 text-sm font-normal text-[var(--primary-deep)]">
             ثبت، ویرایش، غیرفعال‌سازی و مشاهده سوابق ورزشکاران
           </p>
@@ -711,7 +526,7 @@ export default function MembersManagementPage() {
         </button>
       </div>
 
-      {/* Search */}
+      {/* Search Bar */}
       <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-[var(--primary-mild)]/20 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="w-full md:max-w-md">
           <input
@@ -736,14 +551,14 @@ export default function MembersManagementPage() {
         </button>
       </div>
 
-      {/* Loading */}
+      {/* Loading State */}
       {isLoadingMembers && (
         <div className="rounded-2xl border border-[var(--primary-mild)]/20 bg-white p-12 text-center text-sm text-[var(--primary-mild)]">
           در حال دریافت فهرست ورزشکاران...
         </div>
       )}
 
-      {/* Members */}
+      {/* Members List */}
       {!isLoadingMembers && (
         <div className="space-y-4">
           {filteredMembers.length > 0 ? (
@@ -786,7 +601,6 @@ export default function MembersManagementPage() {
                       <HiOutlineCalendar className="h-4 w-4" />
                       تاریخ عضویت
                     </span>
-
                     <p className="text-xs font-bold text-[var(--primary)]">
                       {formatDate(member.joinDate)}
                     </p>
@@ -797,11 +611,7 @@ export default function MembersManagementPage() {
                       <HiOutlineUser className="h-4 w-4" />
                       کد ملی
                     </span>
-
-                    <p
-                      className="text-xs font-bold text-[var(--primary)]"
-                      dir="ltr"
-                    >
+                    <p className="text-xs font-bold text-[var(--primary)]" dir="ltr">
                       {member.nationalCode}
                     </p>
                   </div>
@@ -811,7 +621,6 @@ export default function MembersManagementPage() {
                       <FaDumbbell className="h-3.5 w-3.5" />
                       کلاس و اشتراک
                     </span>
-
                     <button
                       type="button"
                       onClick={() => openDetailsModal(member.id)}
@@ -855,11 +664,7 @@ export default function MembersManagementPage() {
           ) : (
             <div className="rounded-2xl border border-dashed border-[var(--primary-mild)]/35 bg-white p-12 text-center">
               <HiOutlineAcademicCap className="mx-auto h-10 w-10 text-[var(--primary-mild)]" />
-
-              <p className="mt-4 font-bold text-[var(--primary)]">
-                ورزشکاری پیدا نشد.
-              </p>
-
+              <p className="mt-4 font-bold text-[var(--primary)]">ورزشکاری پیدا نشد.</p>
               <p className="mt-2 text-xs text-[var(--primary-mild)]">
                 جستجو را تغییر دهید یا ورزشکار جدیدی ثبت کنید.
               </p>
@@ -868,22 +673,17 @@ export default function MembersManagementPage() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/*                      Create / Edit Member Modal                    */}
-      {/* ------------------------------------------------------------------ */}
-
+      {/* Form Modal (Create / Edit) */}
       {isFormModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--primary-mild)]/30 bg-white shadow-2xl">
-            {/* Modal header */}
             <div className="flex items-center justify-between bg-[var(--sidebar-bg)] p-4 text-[var(--sidebar-text)]">
               <div>
-                <h2 className="font-bold">
+                <h2 className="font-bold text-white">
                   {editingMemberId === null
                     ? "افزودن ورزشکار جدید"
                     : "ویرایش اطلاعات ورزشکار"}
                 </h2>
-
                 <p className="mt-1 text-[11px] font-normal text-[var(--primary-mild)]">
                   تاریخ تولد را با تقویم شمسی وارد کنید.
                 </p>
@@ -900,71 +700,48 @@ export default function MembersManagementPage() {
               </button>
             </div>
 
-            <form
-              onSubmit={handleSaveMember}
-              className="space-y-4 p-5 text-xs"
-            >
-              {/* Name */}
+            <form onSubmit={handleSaveMember} className="space-y-4 p-5 text-xs">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label
-                    htmlFor="firstName"
-                    className="mb-1.5 block font-bold text-[var(--primary)]"
-                  >
+                  <label htmlFor="firstName" className="mb-1.5 block font-bold text-[var(--primary)]">
                     نام <span className="text-rose-600">*</span>
                   </label>
-
                   <input
                     id="firstName"
                     type="text"
                     required
                     value={formData.firstName}
-                    onChange={(event) =>
-                      setFormData((current) => ({
-                        ...current,
-                        firstName: event.target.value,
-                      }))
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, firstName: e.target.value }))
                     }
                     placeholder="مثال: علی"
-                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
                   />
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="lastName"
-                    className="mb-1.5 block font-bold text-[var(--primary)]"
-                  >
+                  <label htmlFor="lastName" className="mb-1.5 block font-bold text-[var(--primary)]">
                     نام خانوادگی <span className="text-rose-600">*</span>
                   </label>
-
                   <input
                     id="lastName"
                     type="text"
                     required
                     value={formData.lastName}
-                    onChange={(event) =>
-                      setFormData((current) => ({
-                        ...current,
-                        lastName: event.target.value,
-                      }))
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, lastName: e.target.value }))
                     }
                     placeholder="مثال: رضایی"
-                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
                   />
                 </div>
               </div>
 
-              {/* Phone / national code */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label
-                    htmlFor="phoneNumber"
-                    className="mb-1.5 block font-bold text-[var(--primary)]"
-                  >
+                  <label htmlFor="phoneNumber" className="mb-1.5 block font-bold text-[var(--primary)]">
                     شماره تماس <span className="text-rose-600">*</span>
                   </label>
-
                   <input
                     id="phoneNumber"
                     type="text"
@@ -972,26 +749,22 @@ export default function MembersManagementPage() {
                     maxLength={11}
                     inputMode="numeric"
                     value={formData.phoneNumber}
-                    onChange={(event) =>
-                      setFormData((current) => ({
-                        ...current,
-                        phoneNumber: event.target.value.replace(/\D/g, ""),
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        phoneNumber: e.target.value.replace(/\D/g, ""),
                       }))
                     }
                     placeholder="09123456789"
                     dir="ltr"
-                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
                   />
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="nationalCode"
-                    className="mb-1.5 block font-bold text-[var(--primary)]"
-                  >
+                  <label htmlFor="nationalCode" className="mb-1.5 block font-bold text-[var(--primary)]">
                     کد ملی <span className="text-rose-600">*</span>
                   </label>
-
                   <input
                     id="nationalCode"
                     type="text"
@@ -999,36 +772,33 @@ export default function MembersManagementPage() {
                     maxLength={10}
                     inputMode="numeric"
                     value={formData.nationalCode}
-                    onChange={(event) =>
-                      setFormData((current) => ({
-                        ...current,
-                        nationalCode: event.target.value.replace(/\D/g, ""),
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        nationalCode: e.target.value.replace(/\D/g, ""),
                       }))
                     }
                     placeholder="0012345678"
                     dir="ltr"
-                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                    className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
                   />
                 </div>
               </div>
 
-              {/* Gender / Jalali birthDate */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block font-bold text-[var(--primary)]">
                     جنسیت <span className="text-rose-600">*</span>
                   </label>
-
                   <Select<SelectOption>
                     options={GENDER_OPTIONS}
                     value={
-                      GENDER_OPTIONS.find(
-                        (item) => item.value === formData.gender
-                      ) ?? GENDER_OPTIONS[0]
+                      GENDER_OPTIONS.find((item) => item.value === formData.gender) ??
+                      GENDER_OPTIONS[0]
                     }
                     onChange={(option) =>
-                      setFormData((current) => ({
-                        ...current,
+                      setFormData((prev) => ({
+                        ...prev,
                         gender: (option?.value ?? "Male") as ApiGender,
                       }))
                     }
@@ -1039,133 +809,95 @@ export default function MembersManagementPage() {
                   <label className="mb-1.5 block font-bold text-[var(--primary)]">
                     تاریخ تولد <span className="text-rose-600">*</span>
                   </label>
-
                   <DatePicker
-                    calendar={persian}
-                    locale={persian_fa}
-                    value={formData.birthDate}
-                    onChange={(date: DateObject | null) =>
-                      setFormData((current) => ({
-                        ...current,
-                        birthDate: date,
+                    value={formData.birthDate ? toGregorianDateString(formData.birthDate) : ""}
+                    onChange={(newGregorianDate) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        birthDate: toJalaliDateObject(newGregorianDate),
                       }))
                     }
-                    calendarPosition="bottom-right"
-                    placeholder="انتخاب تاریخ تولد"
-                    inputClass="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                    placeholder="تاریخ تولد را انتخاب کنید"
                   />
-
-                  {!formData.birthDate && (
-                    <p className="mt-1 text-[10px] font-normal text-[var(--primary-mild)]">
-                      تاریخ را با تقویم شمسی انتخاب کنید.
-                    </p>
-                  )}
                 </div>
               </div>
 
-              {/* Emergency phone */}
               <div>
-                <label
-                  htmlFor="emergencyPhone"
-                  className="mb-1.5 block font-bold text-[var(--primary)]"
-                >
+                <label htmlFor="emergencyPhone" className="mb-1.5 block font-bold text-[var(--primary)]">
                   شماره تماس ضروری{" "}
-                  <span className="font-normal text-[var(--primary-mild)]">
-                    (اختیاری)
-                  </span>
+                  <span className="font-normal text-[var(--primary-mild)]">(اختیاری)</span>
                 </label>
-
                 <input
                   id="emergencyPhone"
                   type="text"
                   maxLength={11}
                   inputMode="numeric"
                   value={formData.emergencyPhone}
-                  onChange={(event) =>
-                    setFormData((current) => ({
-                      ...current,
-                      emergencyPhone: event.target.value.replace(/\D/g, ""),
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      emergencyPhone: e.target.value.replace(/\D/g, ""),
                     }))
                   }
                   placeholder="09123456789"
                   dir="ltr"
-                  className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                  className="w-full rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm text-[var(--primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
                 />
               </div>
 
-              {/* Medical notes */}
               <div>
-                <label
-                  htmlFor="medicalNotes"
-                  className="mb-1.5 block font-bold text-[var(--primary)]"
-                >
+                <label htmlFor="medicalNotes" className="mb-1.5 block font-bold text-[var(--primary)]">
                   نکات پزشکی و سلامتی{" "}
-                  <span className="font-normal text-[var(--primary-mild)]">
-                    (اختیاری)
-                  </span>
+                  <span className="font-normal text-[var(--primary-mild)]">(اختیاری)</span>
                 </label>
-
                 <textarea
                   id="medicalNotes"
                   rows={4}
                   value={formData.medicalNotes}
-                  onChange={(event) =>
-                    setFormData((current) => ({
-                      ...current,
-                      medicalNotes: event.target.value,
-                    }))
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, medicalNotes: e.target.value }))
                   }
                   placeholder="مانند آسیب‌دیدگی، سابقه بیماری، حساسیت دارویی و..."
-                  className="w-full resize-none rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm leading-6 text-[var(--primary)] outline-none transition placeholder:text-[var(--primary-mild)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
+                  className="w-full resize-none rounded-xl border border-[var(--primary-mild)]/40 px-3 py-2.5 text-sm leading-6 text-[var(--primary)] outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10"
                 />
               </div>
 
-              {/* Is active - only edit */}
               {editingMemberId !== null && (
                 <div className="flex items-center gap-2 rounded-xl border border-[var(--primary-mild)]/20 bg-[var(--primary-subtle)]/50 p-3">
                   <input
                     id="isActive"
                     type="checkbox"
                     checked={formData.isActive}
-                    onChange={(event) =>
-                      setFormData((current) => ({
-                        ...current,
-                        isActive: event.target.checked,
-                      }))
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, isActive: e.target.checked }))
                     }
                     className="h-4 w-4 cursor-pointer rounded border-[var(--primary-mild)] text-[var(--primary)] focus:ring-[var(--primary)]"
                   />
-
-                  <label
-                    htmlFor="isActive"
-                    className="cursor-pointer font-bold text-[var(--primary)]"
-                  >
+                  <label htmlFor="isActive" className="cursor-pointer font-bold text-[var(--primary)]">
                     حساب ورزشکار فعال باشد
                   </label>
                 </div>
               )}
 
-              {/* Actions */}
               <div className="flex items-center justify-end gap-3 border-t border-[var(--primary-mild)]/20 pt-4">
                 <button
                   type="button"
                   disabled={isSaving}
                   onClick={closeFormModal}
-                  className="rounded-xl px-4 py-2.5 text-sm font-bold text-[var(--primary-deep)] transition hover:bg-[var(--primary-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl px-4 py-2.5 text-sm font-bold text-[var(--primary-deep)] transition hover:bg-[var(--primary-subtle)] disabled:opacity-50"
                 >
                   انصراف
                 </button>
-
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-bold text-[var(--sidebar-text)] shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl bg-[var(--primary)] px-5 py-2.5 text-sm font-bold text-[var(--sidebar-text)] shadow-sm transition hover:opacity-90 disabled:opacity-50"
                 >
                   {isSaving
                     ? "در حال ذخیره..."
                     : editingMemberId === null
-                    ? "ثبت ورزشکار"
-                    : "ذخیره تغییرات"}
+                      ? "ثبت ورزشکار"
+                      : "ذخیره تغییرات"}
                 </button>
               </div>
             </form>
@@ -1173,10 +905,7 @@ export default function MembersManagementPage() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/*                         Member details modal                       */}
-      {/* ------------------------------------------------------------------ */}
-
+      {/* Details Modal */}
       {isDetailsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-[var(--primary-mild)]/30 bg-white shadow-2xl">
@@ -1187,7 +916,6 @@ export default function MembersManagementPage() {
                     ? `${memberDetails.firstName} ${memberDetails.lastName}`
                     : "جزئیات ورزشکار"}
                 </h2>
-
                 <p className="mt-1 text-[11px] font-normal text-[var(--primary-mild)]">
                   کلاس‌ها، سانس‌ها، اشتراک‌ها و سوابق حضور
                 </p>
@@ -1211,264 +939,85 @@ export default function MembersManagementPage() {
 
             {!isLoadingDetails && memberDetails && (
               <div className="space-y-7 p-5">
-                {/* Personal details */}
                 <section>
                   <h3 className="mb-3 text-sm font-black text-[var(--primary)]">
                     اطلاعات فردی
                   </h3>
-
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-xl bg-[var(--primary-subtle)]/60 p-3">
-                      <span className="text-[11px] text-[var(--primary-deep)]">
-                        شماره تماس
-                      </span>
-
-                      <p
-                        className="mt-1 text-xs font-bold text-[var(--primary)]"
-                        dir="ltr"
-                      >
+                      <span className="text-[11px] text-[var(--primary-deep)]">شماره تماس</span>
+                      <p className="mt-1 text-xs font-bold text-[var(--primary)]" dir="ltr">
                         {memberDetails.phoneNumber}
                       </p>
                     </div>
-
                     <div className="rounded-xl bg-[var(--primary-subtle)]/60 p-3">
-                      <span className="text-[11px] text-[var(--primary-deep)]">
-                        کد ملی
-                      </span>
-
-                      <p
-                        className="mt-1 text-xs font-bold text-[var(--primary)]"
-                        dir="ltr"
-                      >
+                      <span className="text-[11px] text-[var(--primary-deep)]">کد ملی</span>
+                      <p className="mt-1 text-xs font-bold text-[var(--primary)]" dir="ltr">
                         {memberDetails.nationalCode}
                       </p>
                     </div>
-
                     <div className="rounded-xl bg-[var(--primary-subtle)]/60 p-3">
-                      <span className="text-[11px] text-[var(--primary-deep)]">
-                        تاریخ تولد
-                      </span>
-
+                      <span className="text-[11px] text-[var(--primary-deep)]">تاریخ تولد</span>
                       <p className="mt-1 text-xs font-bold text-[var(--primary)]">
                         {formatDate(memberDetails.birthDate)}
                       </p>
                     </div>
-
                     <div className="rounded-xl bg-[var(--primary-subtle)]/60 p-3">
-                      <span className="text-[11px] text-[var(--primary-deep)]">
-                        وضعیت حساب
-                      </span>
-
+                      <span className="text-[11px] text-[var(--primary-deep)]">وضعیت حساب</span>
                       <p className="mt-1 text-xs font-bold text-[var(--primary)]">
                         {memberDetails.isActive ? "فعال" : "غیرفعال"}
                       </p>
                     </div>
                   </div>
-
-                  <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <div className="rounded-xl border border-[var(--primary-mild)]/20 p-3">
-                      <span className="text-[11px] text-[var(--primary-deep)]">
-                        شماره تماس ضروری
-                      </span>
-
-                      <p
-                        className="mt-1 text-xs font-bold text-[var(--primary)]"
-                        dir="ltr"
-                      >
-                        {memberDetails.emergencyPhone || "ثبت نشده"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-[var(--primary-mild)]/20 p-3">
-                      <span className="text-[11px] text-[var(--primary-deep)]">
-                        نکات پزشکی
-                      </span>
-
-                      <p className="mt-1 text-xs font-bold leading-6 text-[var(--primary)]">
-                        {memberDetails.medicalNotes || "ثبت نشده"}
-                      </p>
-                    </div>
-                  </div>
                 </section>
 
-                {/* Subscriptions */}
                 <section>
                   <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-[var(--primary)]">
                     <HiOutlineCheckCircle className="h-5 w-5" />
                     اشتراک‌ها و وضعیت پرداخت
                   </h3>
-
                   {memberDetails.subscriptions.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-[var(--primary-mild)]/30 p-4 text-center text-xs text-[var(--primary-mild)]">
                       اشتراکی برای این ورزشکار ثبت نشده است.
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {memberDetails.subscriptions.map((subscription) => {
-                        const status = getSubscriptionStatus(
-                          subscription.status
-                        );
-
+                      {memberDetails.subscriptions.map((sub) => {
+                        const status = getSubscriptionStatus(sub.status);
                         return (
-                          <div
-                            key={subscription.subscriptionId}
-                            className="rounded-xl border border-[var(--primary-mild)]/20 p-4"
-                          >
+                          <div key={sub.subscriptionId} className="rounded-xl border border-[var(--primary-mild)]/20 p-4">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                               <div>
-                                <p className="font-bold text-[var(--primary)]">
-                                  {subscription.packageName}
-                                </p>
-
-                                <p className="mt-1 text-xs text-[var(--primary-deep)]">
-                                  مربی: {subscription.trainerFullName}
-                                </p>
+                                <p className="font-bold text-[var(--primary)]">{sub.packageName}</p>
+                                <p className="mt-1 text-xs text-[var(--primary-deep)]">مربی: {sub.trainerFullName}</p>
                               </div>
-
-                              <span
-                                className={`w-fit rounded-full border px-3 py-1 text-[11px] font-bold ${status.className}`}
-                              >
+                              <span className={`w-fit rounded-full border px-3 py-1 text-[11px] font-bold ${status.className}`}>
                                 {status.label}
                               </span>
                             </div>
-
                             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                               <div className="rounded-lg bg-[var(--primary-subtle)]/50 p-2.5">
-                                <span className="text-[10px] text-[var(--primary-deep)]">
-                                  بازه اشتراک
-                                </span>
-
+                                <span className="text-[10px] text-[var(--primary-deep)]">بازه اشتراک</span>
                                 <p className="mt-1 text-xs font-bold text-[var(--primary)]">
-                                  {formatDate(subscription.startDate)} تا{" "}
-                                  {formatDate(subscription.endDate)}
+                                  {formatDate(sub.startDate)} تا {formatDate(sub.endDate)}
                                 </p>
                               </div>
-
                               <div className="rounded-lg bg-[var(--primary-subtle)]/50 p-2.5">
-                                <span className="text-[10px] text-[var(--primary-deep)]">
-                                  تعداد جلسات
-                                </span>
-
+                                <span className="text-[10px] text-[var(--primary-deep)]">تعداد جلسات</span>
                                 <p className="mt-1 text-xs font-bold text-[var(--primary)]">
-                                  {formatNumber(subscription.totalSessions)} جلسه
+                                  {formatNumber(sub.totalSessions)} جلسه
                                 </p>
                               </div>
-
                               <div className="rounded-lg bg-[var(--primary-subtle)]/50 p-2.5">
-                                <span className="text-[10px] text-[var(--primary-deep)]">
-                                  جلسات باقی‌مانده
-                                </span>
-
+                                <span className="text-[10px] text-[var(--primary-deep)]">جلسات باقی‌مانده</span>
                                 <p className="mt-1 text-xs font-bold text-[var(--primary)]">
-                                  {formatNumber(
-                                    subscription.remainingSessions
-                                  )}{" "}
-                                  جلسه
+                                  {formatNumber(sub.remainingSessions)} جلسه
                                 </p>
                               </div>
                             </div>
                           </div>
                         );
                       })}
-                    </div>
-                  )}
-                </section>
-
-                {/* Courses */}
-                <section>
-                  <h3 className="mb-3 flex items-center gap-2 text-sm font-black text-[var(--primary)]">
-                    <FaDumbbell className="h-4 w-4" />
-                    کلاس‌ها، سانس‌ها و حضور و غیاب
-                  </h3>
-
-                  {memberDetails.courses.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-[var(--primary-mild)]/30 p-4 text-center text-xs text-[var(--primary-mild)]">
-                      این ورزشکار در هیچ کلاسی ثبت‌نام نشده است.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {memberDetails.courses.map((course) => (
-                        <div
-                          key={course.enrollmentId}
-                          className="rounded-xl border border-[var(--primary-mild)]/20 p-4"
-                        >
-                          <div className="mb-4">
-                            <p className="font-bold text-[var(--primary)]">
-                              {course.classTitle}
-                            </p>
-
-                            <p className="mt-1 text-xs text-[var(--primary-deep)]">
-                              رشته: {course.sportName} | گروه:{" "}
-                              {course.groupName || "ندارد"} | مربی:{" "}
-                              {course.trainerFullName}
-                            </p>
-                          </div>
-
-                          <div className="mb-4">
-                            <p className="mb-2 text-xs font-bold text-[var(--primary)]">
-                              سانس‌های کلاس
-                            </p>
-
-                            {course.schedules.length === 0 ? (
-                              <p className="text-xs text-[var(--primary-mild)]">
-                                سانسی برای این کلاس ثبت نشده است.
-                              </p>
-                            ) : (
-                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                {course.schedules.map((schedule, index) => (
-                                  <div
-                                    key={`${course.enrollmentId}-${index}`}
-                                    className="flex items-center justify-between rounded-lg bg-[var(--primary-subtle)]/60 p-3"
-                                  >
-                                    <span className="flex items-center gap-1.5 text-xs font-bold text-[var(--primary)]">
-                                      <HiOutlineCalendar className="h-4 w-4" />
-                                      {getDayOfWeekLabel(schedule.dayOfWeek)}
-                                    </span>
-
-                                    <span
-                                      className="flex items-center gap-1 text-xs font-bold text-[var(--primary-deep)]"
-                                      dir="ltr"
-                                    >
-                                      <HiOutlineClock className="h-4 w-4" />
-                                      {schedule.startTime} - {schedule.endTime}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          <div>
-                            <p className="mb-2 text-xs font-bold text-[var(--primary)]">
-                              سوابق حضور و غیاب
-                            </p>
-
-                            {course.attendances.length === 0 ? (
-                              <p className="text-xs text-[var(--primary-mild)]">
-                                سابقهٔ حضور و غیابی وجود ندارد.
-                              </p>
-                            ) : (
-                              <div className="flex flex-wrap gap-2">
-                                {course.attendances.map(
-                                  (attendance, index) => (
-                                    <span
-                                      key={`${course.enrollmentId}-attendance-${index}`}
-                                      className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${
-                                        attendance.isPresent
-                                          ? "bg-emerald-50 text-emerald-700"
-                                          : "bg-rose-50 text-rose-700"
-                                      }`}
-                                    >
-                                      {formatDate(attendance.attendanceDate)}:{" "}
-                                      {attendance.isPresent ? "حاضر" : "غایب"}
-                                    </span>
-                                  )
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   )}
                 </section>
@@ -1492,41 +1041,31 @@ export default function MembersManagementPage() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/*                         Deactivate dialog                          */}
-      {/* ------------------------------------------------------------------ */}
-
+      {/* Deactivate Modal */}
       {deleteMemberId !== null && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
               <HiOutlineExclamationCircle className="h-7 w-7" />
             </div>
-
-            <h2 className="mt-4 text-lg font-black text-[var(--primary)]">
-              غیرفعال‌سازی ورزشکار
-            </h2>
-
+            <h2 className="mt-4 text-lg font-black text-[var(--primary)]">غیرفعال‌سازی ورزشکار</h2>
             <p className="mt-2 text-sm leading-7 text-[var(--primary-deep)]">
-              آیا از غیرفعال‌سازی این ورزشکار اطمینان دارید؟ این عملیات مطابق
-              API حذف دائمی نیست و حساب عضو را غیرفعال می‌کند.
+              آیا از غیرفعال‌سازی این ورزشکار اطمینان دارید؟ حساب عضو غیرفعال خواهد شد.
             </p>
-
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setDeleteMemberId(null)}
-                className="rounded-xl px-4 py-2.5 text-sm font-bold text-[var(--primary-deep)] transition hover:bg-[var(--primary-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl px-4 py-2.5 text-sm font-bold text-[var(--primary-deep)] transition hover:bg-[var(--primary-subtle)]"
               >
                 انصراف
               </button>
-
               <button
                 type="button"
                 disabled={isDeleting}
                 onClick={confirmDeactivateMember}
-                className="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
               >
                 {isDeleting ? "در حال انجام..." : "تأیید غیرفعال‌سازی"}
               </button>
@@ -1535,25 +1074,15 @@ export default function MembersManagementPage() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/*                         Central error dialog                       */}
-      {/* ------------------------------------------------------------------ */}
-
+      {/* Error Dialog */}
       {errorDialog.isOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
               <HiOutlineExclamationCircle className="h-7 w-7" />
             </div>
-
-            <h2 className="mt-4 text-lg font-black text-[var(--primary)]">
-              {errorDialog.title}
-            </h2>
-
-            <p className="mt-2 text-sm leading-7 text-[var(--primary-deep)]">
-              {errorDialog.message}
-            </p>
-
+            <h2 className="mt-4 text-lg font-black text-[var(--primary)]">{errorDialog.title}</h2>
+            <p className="mt-2 text-sm leading-7 text-[var(--primary-deep)]">{errorDialog.message}</p>
             <div className="mt-6 flex justify-end">
               <button
                 type="button"

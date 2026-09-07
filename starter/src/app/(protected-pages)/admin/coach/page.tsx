@@ -486,13 +486,13 @@ export default function AdminTrainersListPage() {
           trainerActive: true,
         };
 
-        await ApiService.put<void, UpdateTrainerRequest>(
+        await ApiService.put< UpdateTrainerRequest>(
           `${TRAINERS_ENDPOINT}/${editingTrainerId}`,
           updateRequest
         );
       } else {
         const isCreated = await ApiService.post<
-          boolean,
+       
           CreateTrainerRequest
         >(TRAINERS_ENDPOINT, createRequest);
 

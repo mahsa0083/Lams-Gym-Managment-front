@@ -1,15 +1,17 @@
 import type { NextAuthConfig } from 'next-auth'
-import { apiLoginServer } from '@/services/client/AuthServerServices'
+import {
+    apiLoginServer,
+    apiRefreshTokenServer,
+} from '@/services/client/AuthServerServices'
 
 import Credentials from 'next-auth/providers/credentials'
-import Github from 'next-auth/providers/github'
-import Google from 'next-auth/providers/google'
 
-import type { SignInCredential } from '@/@types/auth'
 const ROLE_CLAIM =
     'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'
 
-function getAuthorityFromAccessToken(accessToken: string): string[] {
+function getAuthorityFromAccessToken(
+    accessToken: string,
+): string[] {
     try {
         const payloadPart = accessToken.split('.')[1]
 
@@ -17,8 +19,9 @@ function getAuthorityFromAccessToken(accessToken: string): string[] {
             return []
         }
 
-        // تبدیل Base64Url به Base64 معمولی
-        const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/')
+        const base64 = payloadPart
+            .replace(/-/g, '+')
+            .replace(/_/g, '/')
 
         const payload = JSON.parse(
             Buffer.from(base64, 'base64').toString('utf-8'),
@@ -26,41 +29,155 @@ function getAuthorityFromAccessToken(accessToken: string): string[] {
 
         const roleValue = payload[ROLE_CLAIM]
 
-        // اگر بک‌اند در آینده چند Role ارسال کرد، این حالت هم پشتیبانی می‌شود
-        const roles = Array.isArray(roleValue) ? roleValue : [roleValue]
+        if (roleValue === undefined || roleValue === null) {
+            return []
+        }
 
-        return roles
-            .map(String)
-            .map((role) => {
-                switch (role) {
-                    case '1':
-                        return 'ADMIN'
-                    case '2':
-                        return 'TRAINER'
-                    case '3':
-                        return 'MEMBER'
-                    default:
-                        return null
-                }
-            })
-            .filter((role): role is string => role !== null)
+        const roles = Array.isArray(roleValue)
+            ? roleValue
+            : [roleValue]
+
+        return roles.flatMap((role) => {
+            switch (String(role)) {
+                case '1':
+                    return ['ADMIN']
+
+                case '2':
+                    return ['TRAINER']
+
+                case '3':
+                    return ['MEMBER']
+
+                default:
+                    return []
+            }
+        })
     } catch (error) {
-        console.error('Could not extract role from access token:', error)
+        console.error(
+            'Failed to extract authority from access token:',
+            error,
+        )
+
         return []
+    }
+}
+
+function getAccessTokenExpiresAt(
+    accessToken: string,
+): number {
+    try {
+        const payloadPart = accessToken.split('.')[1]
+
+        if (!payloadPart) {
+            return 0
+        }
+
+        const base64 = payloadPart
+            .replace(/-/g, '+')
+            .replace(/_/g, '/')
+
+        const payload = JSON.parse(
+            Buffer.from(base64, 'base64').toString('utf-8'),
+        ) as Record<string, unknown>
+
+        const exp = payload.exp
+
+        if (typeof exp === 'number') {
+            return exp
+        }
+
+        if (typeof exp === 'string') {
+            const parsedExp = Number(exp)
+
+            return Number.isFinite(parsedExp)
+                ? parsedExp
+                : 0
+        }
+
+        return 0
+    } catch (error) {
+        console.error(
+            'Failed to extract expiration from access token:',
+            error,
+        )
+
+        return 0
+    }
+}
+
+async function refreshAccessToken(token: any) {
+    try {
+        if (
+            typeof token.refreshToken !== 'string' ||
+            !token.refreshToken.trim()
+        ) {
+            throw new Error('Refresh token is missing')
+        }
+
+        console.log('Refreshing expired access token...')
+
+        const refreshResponse = await apiRefreshTokenServer({
+            refreshToken: token.refreshToken,
+        })
+
+        if (!refreshResponse?.accessToken) {
+            throw new Error(
+                'No access token in refresh response',
+            )
+        }
+
+        const expiresAt = getAccessTokenExpiresAt(
+            refreshResponse.accessToken,
+        )
+
+        if (!expiresAt) {
+            throw new Error(
+                'Expiration claim (exp) was not found in access token',
+            )
+        }
+
+        const authority = getAuthorityFromAccessToken(
+            refreshResponse.accessToken,
+        )
+
+        return {
+            ...token,
+            accessToken: refreshResponse.accessToken,
+
+            // اگر بک‌اند refreshToken جدید برگرداند،
+            // همان ذخیره می‌شود؛ در غیر این صورت قبلی حفظ می‌شود.
+            refreshToken:
+                refreshResponse.refreshToken ??
+                token.refreshToken,
+
+            expiresAt,
+            authority: authority.length
+                ? authority
+                : token.authority,
+
+            error: undefined,
+        }
+    } catch (error) {
+        console.error(
+            'Failed to refresh access token:',
+            error,
+        )
+
+        return {
+            ...token,
+            accessToken: undefined,
+            refreshToken: undefined,
+            authority: [],
+            error: 'RefreshAccessTokenError',
+        }
     }
 }
 
 export default {
     providers: [
-        // Github({
-        //     clientId: process.env.GITHUB_AUTH_CLIENT_ID,
-        //     clientSecret: process.env.GITHUB_AUTH_CLIENT_SECRET,
-        // }),
-        // Google({
-        //     clientId: process.env.GOOGLE_AUTH_CLIENT_ID,
-        //     clientSecret: process.env.GOOGLE_AUTH_CLIENT_SECRET,
-        // }),
         Credentials({
+            name: 'Credentials',
+
             credentials: {
                 nationalCode: {
                     label: 'National Code',
@@ -73,90 +190,141 @@ export default {
             },
 
             async authorize(credentials) {
-                console.log('AUTHORIZE HAS BEEN CALLED:', credentials)
-                const nationalCode = credentials?.nationalCode
-                const code = credentials?.code
+                console.log(
+                    'AUTHORIZE HAS BEEN CALLED:',
+                    credentials,
+                )
 
                 if (
-                    typeof nationalCode !== 'string' ||
-                    typeof code !== 'string' ||
-                    !nationalCode.trim() ||
-                    !code.trim()
+                    typeof credentials?.nationalCode !==
+                        'string' ||
+                    !credentials.nationalCode.trim()
+                ) {
+                    return null
+                }
+
+                if (
+                    typeof credentials?.code !== 'string' ||
+                    !credentials.code.trim()
                 ) {
                     return null
                 }
 
                 try {
-    const loginResponse = await apiLoginServer({
-    nationalCode: nationalCode.trim(),
-    code: code.trim(),
-})
+                    const loginResponse =
+                        await apiLoginServer({
+                            nationalCode:
+                                credentials.nationalCode.trim(),
+                            code: credentials.code.trim(),
+                        })
 
+                    if (!loginResponse?.accessToken) {
+                        console.error(
+                            'Access token was not found in login response',
+                        )
 
-    console.log('OTP API login response:', loginResponse)
+                        return null
+                    }
 
-    if (!loginResponse?.accessToken) {
-        console.error(
-            'accessToken was not found in API response:',
-            loginResponse,
-        )
-        return null
-    }
+                    if (
+                        typeof loginResponse.refreshToken !==
+                            'string' ||
+                        !loginResponse.refreshToken.trim()
+                    ) {
+                        console.error(
+                            'Refresh token was not found in login response',
+                        )
 
-    const authority = getAuthorityFromAccessToken(loginResponse.accessToken)
+                        return null
+                    }
 
-console.log('User authority extracted from access token:', authority)
+                    const expiresAt =
+                        getAccessTokenExpiresAt(
+                            loginResponse.accessToken,
+                        )
 
-return {
-    id: nationalCode.trim(),
+                    if (!expiresAt) {
+                        console.error(
+                            'Expiration claim (exp) was not found in access token',
+                        )
+
+                        return null
+                    }
+
+                    const authority =
+                        getAuthorityFromAccessToken(
+                            loginResponse.accessToken,
+                        )
+
+                    return {
+                         id: credentials.nationalCode.trim(),
     authority,
     accessToken: loginResponse.accessToken,
     refreshToken: loginResponse.refreshToken,
-    expiresAt: loginResponse.expiresAt,
-}
+    expiresAt: String(expiresAt),
+                    }
+                } catch (error) {
+                    console.error(
+                        'Login failed:',
+                        error,
+                    )
 
-} catch (error) {
-    console.error('OTP login failed:', error)
-    return null
-}
-
+                    return null
+                }
             },
         }),
     ],
+
     callbacks: {
-    async jwt({ token, user }) {
-        /*
-         * user فقط در ورود اولیه وجود دارد؛
-         * داده‌های برگشتی authorize را داخل JWT رمزگذاری‌شده NextAuth ذخیره می‌کنیم.
-         */
-        if (user) {
-            token.authority = user.authority ?? []
-
-            token.accessToken = user.accessToken
-            token.refreshToken = user.refreshToken
-            token.expiresAt = user.expiresAt
-        }
-
-        return token
-    },
-
-    async session({ session, token }) {
-        /*
-         * accessToken را برای درخواست‌های سمت کلاینت در دسترس می‌گذاریم.
-         * refreshToken را عمداً به Session نمی‌فرستیم.
-         */
+        async jwt({ token, user }) {
+           
+            if (user) {
         return {
-            ...session,
-
-            accessToken: token.accessToken,
-
-            user: {
-                ...session.user,
-                id: token.sub ?? '',
-                authority: token.authority ?? [],
-            },
+            ...token,
+            accessToken: user.accessToken,
+            refreshToken: user.refreshToken,
+            authority: user.authority ?? [],
+            expiresAt: String(user.expiresAt),
+            error: undefined,
         }
-    },
-},
+    }
 
+            const currentTimeInSeconds = Math.floor(
+                Date.now() / 1000,
+            )
+
+            const tokenExpiresAt =
+                Number(token.expiresAt) ||
+                getAccessTokenExpiresAt(
+                    String(token.accessToken ?? ''),
+                )
+
+            // تا ۱۰ ثانیه قبل از انقضا نیازی به refresh نیست.
+            if (
+                currentTimeInSeconds <
+                tokenExpiresAt - 10
+            ) {
+                return token
+            }
+    console.log('FORCED REFRESH TEST')
+
+            return refreshAccessToken(token)
+        },
+
+        async session({ session, token }) {
+            return {
+                ...session,
+                accessToken: token.accessToken as string,
+                error: token.error as
+                    | string
+                    | undefined,
+
+                user: {
+                    ...session.user,
+                    id: token.sub ?? '',
+                    authority: token.authority ?? [],
+                },
+            }
+        },
+    },
 } satisfies NextAuthConfig

@@ -285,23 +285,35 @@ const Select = <ExtraOption,>(props: SelectProps<ExtraOption>) => {
             )
         }
 
-        return isSingle
+          return isSingle
             ? (finalOptions as Array<SingleOption<ExtraOption>>).map(
-                  (item, index) => (
-                      <SelectItem
-                          key={item.value + index}
-                          option={item}
-                          selected={
-                              selectedItem && 'value' in selectedItem
-                                  ? selectedItem.value === item.value
-                                  : undefined
-                          }
-                          hovered={selectState.highlightedIndex === index}
-                          customOption={customOption}
-                          {...getItemProps(item, index)}
-                      />
-                  ),
+                  (item, index) => {
+                      // استخراج امن مقدار، چه آبجکت باشد چه عدد یا رشته
+                      const selectedVal =
+                          selectedItem != null &&
+                          typeof selectedItem === 'object' &&
+                          'value' in selectedItem
+                              ? (selectedItem as any).value
+                              : selectedItem;
+
+                      // مقایسه امن با تبدیل هر دو به رشته جهت جلوگیری از عدم تطابق string با number
+                      const isSelected =
+                          selectedVal != null &&
+                          String(selectedVal) === String(item.value);
+
+                      return (
+                          <SelectItem
+                              key={`${item.value}-${index}`}
+                              option={item}
+                              selected={isSelected}
+                              hovered={selectState.highlightedIndex === index}
+                              customOption={customOption}
+                              {...getItemProps(item, index)}
+                          />
+                      );
+                  },
               )
+
             : (finalOptions as Array<GroupOption<ExtraOption>>).reduce(
                   (
                       results: {
