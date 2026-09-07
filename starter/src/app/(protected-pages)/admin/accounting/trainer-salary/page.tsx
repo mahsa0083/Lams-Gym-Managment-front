@@ -1,24 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DatePicker from '@/components/ui/DatePicker';
 import { Select } from '@/components/ui/Select';
+import ApiService from '@/services/client/ApiService';
 import {
   HiOutlineCalculator,
   HiOutlineCheckCircle,
   HiOutlineX,
   HiOutlineExclamation,
   HiOutlineEye,
-  HiOutlineCalendar,
-  HiOutlineCash,
   HiOutlineDocumentText,
+  HiOutlineCash,
 } from 'react-icons/hi';
 
-const trainerOptions = [
-  { value: '1', label: 'علی محمدی (بدنسازی)' },
-  { value: '2', label: 'سارا رضایی (کروس‌فیت)' },
-];
-// مدل‌های منطبق با DTO بک‌اند
 export enum TrainerSalaryStatus {
   Draft = 'Draft',
   Calculated = 'Calculated',
@@ -50,16 +45,29 @@ export interface TrainerSalaryStatementDetailsDto {
   items: TrainerSalaryStatementItemDto[];
 }
 
-export default function TrainerSalaryPage() {
-  // استیت‌های ورودی
-  const [selectedTrainer, setSelectedTrainer] = useState<string>('');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+export interface TrainerDto {
+  id: number;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  fullName?: string;
+  specialty?: string;
+}
 
-  // استیت‌های صورت‌حساب و دیالوگ‌ها
+export default function TrainerSalaryPage() {
+  const [trainerOptions, setTrainerOptions] = useState<{ value: string; label: string }[]>([]);
+  const [selectedTrainer, setSelectedTrainer] = useState<string>('');
+  
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  
+  const [loading, setLoading] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+
   const [statement, setStatement] = useState<TrainerSalaryStatementDetailsDto | null>(null);
+  const [statementsHistory, setStatementsHistory] = useState<TrainerSalaryStatementDetailsDto[]>([]);
   const [selectedStatementForModal, setSelectedStatementForModal] = useState<TrainerSalaryStatementDetailsDto | null>(null);
+  
   const [dialogConfig, setDialogConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -73,13 +81,80 @@ export default function TrainerSalaryPage() {
     type: 'info',
   });
 
-  const trainerOptions = [
-    { value: '1', label: 'علی محمدی (بدنسازی)' },
-    { value: '2', label: 'سارا رضایی (کروس‌فیت)' },
-  ];
+  const convertToPersianDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return '-';
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return dateString;
+      return new Intl.DateTimeFormat('fa-IR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(d);
+    } catch {
+      return dateString;
+    }
+  };
 
-  // محاسبه و شبیه‌سازی دریافت DTO کامل
-  const handleCalculate = () => {
+  const fetchTrainers = async () => {
+    try {
+      const response = await ApiService.get<TrainerDto[]>('/trainers');
+      if (response && Array.isArray(response)) {
+        const options = response.map((trainer) => {
+          const fullName = trainer.fullName || 
+                           (trainer.name ? trainer.name : `${trainer.firstName || ''} ${trainer.lastName || ''}`.trim()) || 
+                           `مربی شماره ${trainer.id}`;
+          return {
+            value: trainer.id.toString(),
+            label: trainer.specialty ? `${fullName} (${trainer.specialty})` : fullName,
+          };
+        });
+        setTrainerOptions(options);
+      }
+    } catch (error) {
+      console.error('Error fetching trainers:', error);
+    }
+  };
+
+  const fetchSalaryHistory = async () => {
+    try {
+      setTableLoading(true);
+      const response = await ApiService.get<TrainerSalaryStatementDetailsDto[]>('/TrainerSalary/statements');
+      if (response && Array.isArray(response)) {
+        const formattedHistory = response.map(item => ({
+          ...item,
+          periodStart: convertToPersianDate(item.periodStart),
+          periodEnd: convertToPersianDate(item.periodEnd),
+          calculatedAt: convertToPersianDate(item.calculatedAt),
+        }));
+        setStatementsHistory(formattedHistory);
+      }
+    } catch (error) {
+      console.error('Error fetching salary history:', error);
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTrainers();
+    fetchSalaryHistory();
+  }, []);
+
+  const formatGregorianDateToString = (date: Date | null): string => {
+    if (!date) return '';
+    const d = new Date(date);
+    let month = '' + (d.getMonth() + 1);
+    let day = '' + d.getDate();
+    const year = d.getFullYear();
+
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
+
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleCalculate = async () => {
     if (!selectedTrainer || !startDate || !endDate) {
       setDialogConfig({
         isOpen: true,
@@ -91,38 +166,36 @@ export default function TrainerSalaryPage() {
     }
 
     setLoading(true);
-
-    setTimeout(() => {
-      const fixed = 15000000;
-      const commission = 5400000;
-      const total = fixed + commission;
-
-      const mockData: TrainerSalaryStatementDetailsDto = {
-        id: Math.floor(Math.random() * 1000) + 100,
+    try {
+      const payload = {
         trainerId: Number(selectedTrainer),
-        trainerName: selectedTrainer === '1' ? 'علی محمدی' : 'سارا رضایی',
-        periodStart: startDate,
-        periodEnd: endDate,
-        fixedSalaryAmount: fixed,
-        commissionAmount: commission,
-        amount: total,
-        status: TrainerSalaryStatus.Calculated,
-        calculatedAt: new Date().toISOString(),
-        approvedAt: null,
-        paidAt: null,
-        description: 'محاسبه سیستم بر اساس سانس‌های برگزارشده و پورسانت ثبت‌نامی‌ها',
-        items: [
-          { id: 1, title: 'حقوق پایه و سانس‌های برگزارشده', amount: fixed, description: '۱۸ جلسه کلاس برگزارشده' },
-          { id: 2, title: 'درصد از ثبت‌نام شاگردان (۳۰٪)', amount: commission, description: 'مربوط به ۴۲ شاگرد جدید' },
-        ],
+        periodStart: formatGregorianDateToString(startDate),
+        periodEnd: formatGregorianDateToString(endDate),
       };
 
-      setStatement(mockData);
+      const result = await ApiService.post<TrainerSalaryStatementDetailsDto>('/TrainerSalary/calculate', payload);
+      if (result) {
+        setStatement({
+          ...result,
+          periodStart: convertToPersianDate(result.periodStart),
+          periodEnd: convertToPersianDate(result.periodEnd),
+          calculatedAt: convertToPersianDate(result.calculatedAt),
+        });
+      }
+    } catch (error: any) {
+      console.error('Error calculating salary:', error);
+      const errorMessage = error?.response?.data?.detail || 'محاسبه حقوق با خطا مواجه شد. لطفاً دوباره تلاش کنید.';
+      setDialogConfig({
+        isOpen: true,
+        title: error?.response?.data?.title || 'خطا در محاسبه',
+        message: errorMessage,
+        type: 'warning',
+      });
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
-  // تأیید و صدور سند
   const handleIssueStatement = () => {
     if (!statement) return;
 
@@ -131,22 +204,71 @@ export default function TrainerSalaryPage() {
       title: 'تأیید و صدور سند تسویه',
       message: `آیا از صدور نهایی سند حقوق ${statement.trainerName} به مبلغ ${statement.amount.toLocaleString()} تومان اطمینان دارید؟`,
       type: 'info',
-      onConfirm: () => {
-        setStatement((prev) =>
-          prev
-            ? {
-                ...prev,
-                status: TrainerSalaryStatus.Approved,
-                approvedAt: new Date().toISOString(),
-              }
-            : null
-        );
-        setDialogConfig({
-          isOpen: true,
-          title: 'صدور موفق',
-          message: 'سند حقوق مربی با موفقیت ثبت و تأیید گردید.',
-          type: 'success',
-        });
+      onConfirm: async () => {
+        try {
+          await ApiService.put(`/TrainerSalary/${statement.id}/approve`, {});
+          setStatement((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: TrainerSalaryStatus.Approved,
+                  approvedAt: new Date().toISOString(),
+                }
+              : null
+          );
+          fetchSalaryHistory();
+          setDialogConfig({
+            isOpen: true,
+            title: 'صدور موفق',
+            message: 'سند حقوق مربی با موفقیت ثبت و تأیید گردید.',
+            type: 'success',
+          });
+        } catch (error: any) {
+          console.error('Error approving statement:', error);
+          const errorMessage = error?.response?.data?.detail || 'تأیید سند با خطا مواجه شد.';
+          setDialogConfig({
+            isOpen: true,
+            title: error?.response?.data?.title || 'خطا',
+            message: errorMessage,
+            type: 'warning',
+          });
+        }
+      },
+    });
+  };
+
+  const handlePayStatement = (statementId: number) => {
+    setDialogConfig({
+      isOpen: true,
+      title: 'پرداخت حقوق مربی',
+      message: 'آیا از انجام پرداخت این صورت‌حساب اطمینان دارید؟',
+      type: 'info',
+      onConfirm: async () => {
+        try {
+          await ApiService.post(`/TrainerSalary/${statementId}/pay`, {});
+          fetchSalaryHistory();
+          if (statement && statement.id === statementId) {
+            setStatement((prev) => prev ? { ...prev, status: TrainerSalaryStatus.Paid, paidAt: new Date().toISOString() } : null);
+          }
+          if (selectedStatementForModal && selectedStatementForModal.id === statementId) {
+            setSelectedStatementForModal((prev) => prev ? { ...prev, status: TrainerSalaryStatus.Paid, paidAt: new Date().toISOString() } : null);
+          }
+          setDialogConfig({
+            isOpen: true,
+            title: 'پرداخت موفق',
+            message: 'حقوق مربی با موفقیت پرداخت شد.',
+            type: 'success',
+          });
+        } catch (error: any) {
+          console.error('Error paying statement:', error);
+          const errorMessage = error?.response?.data?.detail || 'پرداخت حقوق با خطا مواجه شد.';
+          setDialogConfig({
+            isOpen: true,
+            title: error?.response?.data?.title || 'خطا',
+            message: errorMessage,
+            type: 'warning',
+          });
+        }
       },
     });
   };
@@ -166,7 +288,6 @@ export default function TrainerSalaryPage() {
 
   return (
     <div className="min-h-screen p-4 md:p-8 dir-rtl font-semibold space-y-6 bg-slate-50/50">
-      {/* هدر صفحه */}
       <div>
         <h1 className="text-2xl font-extrabold text-[#1D3557]">مدیریت و تسویه حقوق مربیان</h1>
         <p className="text-sm text-[#457B9D] mt-1">
@@ -174,7 +295,6 @@ export default function TrainerSalaryPage() {
         </p>
       </div>
 
-      {/* ۱. فیلتر و محاسبه حقوق */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#A8DADC]/40 space-y-4">
         <h2 className="text-base font-bold text-[#1D3557] flex items-center gap-2">
           <HiOutlineCalculator className="w-5 h-5 text-[#E63946]" />
@@ -185,32 +305,28 @@ export default function TrainerSalaryPage() {
           <div>
             <label className="block text-xs font-bold text-[#1D3557] mb-2">انتخاب مربی</label>
             <Select
-  options={trainerOptions}
-  value={selectedTrainer}
-  onChange={(val: any) => setSelectedTrainer(typeof val === 'object' ? val?.value : val)}
-  placeholder="-- یک مربی انتخاب کنید --"
-/>
+              options={trainerOptions}
+              value={trainerOptions.find(opt => opt.value === selectedTrainer) || selectedTrainer}
+              onChange={(val: any) => setSelectedTrainer(typeof val === 'object' ? val?.value : val)}
+              placeholder="-- یک مربی انتخاب کنید --"
+            />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-[#1D3557] mb-2">از تاریخ (شروع دوره)</label>
             <DatePicker
-              value={startDate as any}
-              onChange={(date: any) => setStartDate(typeof date === 'string' ? date : date?.format?.('YYYY/MM/DD') || '')}
-              placeholder="۱۳۷۸/۰۷/۰۵"
-              {...({ calendarPosition: 'bottom-right', fixMainPosition: true } as any)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#457B9D]"
+              value={startDate}
+              onChange={setStartDate}
+              placeholder="انتخاب تاریخ شروع"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-[#1D3557] mb-2">تا تاریخ (پایان دوره)</label>
             <DatePicker
-              value={endDate as any}
-              onChange={(date: any) => setEndDate(typeof date === 'string' ? date : date?.format?.('YYYY/MM/DD') || '')}
-              placeholder="۱۳۷۸/۰۷/۰۵"
-              {...({ calendarPosition: 'bottom-right', fixMainPosition: true } as any)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#457B9D]"
+              value={endDate}
+              onChange={setEndDate}
+              placeholder="انتخاب تاریخ پایان"
             />
           </div>
         </div>
@@ -218,13 +334,12 @@ export default function TrainerSalaryPage() {
         <button
           onClick={handleCalculate}
           disabled={loading}
-          className="mt-2 bg-[#1D3557] hover:bg-[#1D3557]/90 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-all"
+          className="mt-2 bg-[#1D3557] hover:bg-[#1D3557]/90 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-all cursor-pointer"
         >
           {loading ? 'در حال محاسبه...' : 'محاسبه حقوق و کارکرد'}
         </button>
       </div>
 
-      {/* ۲. کارت پیش‌نمایش سند حقوق صادر شده */}
       {statement && (
         <div className="bg-emerald-50/60 border border-emerald-200 p-6 rounded-2xl space-y-4">
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-2 border-b border-emerald-200 pb-3">
@@ -247,7 +362,6 @@ export default function TrainerSalaryPage() {
             </div>
           </div>
 
-          {/* خلاصه محاسبات */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="bg-white p-3 rounded-xl border border-emerald-100 flex justify-between items-center text-sm">
               <span className="text-gray-600">حقوق ثابت (Fixed Salary):</span>
@@ -259,7 +373,6 @@ export default function TrainerSalaryPage() {
             </div>
           </div>
 
-          {/* ریز آیتم‌های سند */}
           <div className="space-y-2 bg-white p-4 rounded-xl border border-emerald-100">
             <span className="text-xs font-bold text-[#1D3557] block mb-2">جزئیات ریز آیتم‌ها (Items):</span>
             {statement.items.map((item, idx) => (
@@ -274,19 +387,28 @@ export default function TrainerSalaryPage() {
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <button
-              onClick={handleIssueStatement}
-              disabled={statement.status === TrainerSalaryStatus.Approved}
-              className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white font-bold py-2.5 px-5 rounded-xl text-xs flex items-center gap-1.5 transition-all"
-            >
-              <HiOutlineCheckCircle className="w-4 h-4" />
-              <span>{statement.status === TrainerSalaryStatus.Approved ? 'سند تأیید شده است' : 'تأیید و صدور سند تسویه‌حساب'}</span>
-            </button>
+            {statement.status === TrainerSalaryStatus.Calculated && (
+              <button
+                onClick={handleIssueStatement}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <HiOutlineCheckCircle className="w-4 h-4" />
+                <span>تأیید و صدور سند تسویه‌حساب</span>
+              </button>
+            )}
+            {statement.status === TrainerSalaryStatus.Approved && (
+              <button
+                onClick={() => handlePayStatement(statement.id)}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <HiOutlineCash className="w-4 h-4" />
+                <span>پرداخت حقوق</span>
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* ۳. تاریخچه پرداختی‌ها */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-[#A8DADC]/40 space-y-4">
         <h2 className="text-base font-bold text-[#1D3557]">تاریخچه اسناد حقوق مربیان</h2>
         <div className="overflow-x-auto">
@@ -302,48 +424,48 @@ export default function TrainerSalaryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              <tr>
-                <td className="p-3 font-semibold text-[#1D3557]">علی محمدی</td>
-                <td className="p-3 text-xs text-gray-500">۱۴۰۵/۰۴/۰۱ تا ۱۴۰۵/۰۴/۳۱</td>
-                <td className="p-3 font-bold text-emerald-600">۱۸,۵۰۰,۰۰۰ تومان</td>
-                <td className="p-3 text-xs text-gray-500">۱۴۰۵/۰۵/۰۲</td>
-                <td className="p-3">{getStatusBadge(TrainerSalaryStatus.Paid)}</td>
-                <td className="p-3">
-                  <button
-                    onClick={() =>
-                      setSelectedStatementForModal({
-                        id: 101,
-                        trainerId: 1,
-                        trainerName: 'علی محمدی',
-                        periodStart: '۱۴۰۵/۰۴/۰۱',
-                        periodEnd: '۱۴۰۵/۰۴/۳۱',
-                        fixedSalaryAmount: 15000000,
-                        commissionAmount: 3500000,
-                        amount: 18500000,
-                        status: TrainerSalaryStatus.Paid,
-                        calculatedAt: '۱۴۰۵/۰۵/۰۲',
-                        approvedAt: '۱۴۰۵/۰۵/۰۳',
-                        paidAt: '۱۴۰۵/۰۵/۰۴',
-                        description: 'تسویه کامل حقوق تیرماه',
-                        items: [
-                          { title: 'حقوق ثابت', amount: 15000000 },
-                          { title: 'پورسانت شاگردان', amount: 3500000 },
-                        ],
-                      })
-                    }
-                    className="text-[#457B9D] hover:underline text-xs font-bold flex items-center gap-1"
-                  >
-                    <HiOutlineEye className="w-4 h-4" />
-                    <span>مشاهده جزئیات</span>
-                  </button>
-                </td>
-              </tr>
+              {tableLoading ? (
+                <tr>
+                  <td colSpan={6} className="text-center p-6 text-gray-500 text-xs">در حال بارگذاری تاریخچه...</td>
+                </tr>
+              ) : statementsHistory.length > 0 ? (
+                statementsHistory.map((item) => (
+                  <tr key={item.id}>
+                    <td className="p-3 font-semibold text-[#1D3557]">{item.trainerName}</td>
+                    <td className="p-3 text-xs text-gray-500">{item.periodStart} تا {item.periodEnd}</td>
+                    <td className="p-3 font-bold text-emerald-600">{item.amount.toLocaleString()} تومان</td>
+                    <td className="p-3 text-xs text-gray-500">{item.calculatedAt}</td>
+                    <td className="p-3">{getStatusBadge(item.status)}</td>
+                    <td className="p-3 flex items-center gap-3">
+                      <button
+                        onClick={() => setSelectedStatementForModal(item)}
+                        className="text-[#457B9D] hover:underline text-xs font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <HiOutlineEye className="w-4 h-4" />
+                        <span>جزئیات</span>
+                      </button>
+                      {item.status === TrainerSalaryStatus.Approved && (
+                        <button
+                          onClick={() => handlePayStatement(item.id)}
+                          className="text-blue-600 hover:underline text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <HiOutlineCash className="w-4 h-4" />
+                          <span>پرداخت</span>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="text-center p-6 text-gray-500 text-xs">هیچ سابقه حقوقی ثبت نشده است.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* دیالوگ عمومی هشدار/موفقیت (جایگزین alert) */}
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-xl border border-gray-100">
@@ -361,21 +483,28 @@ export default function TrainerSalaryPage() {
             </div>
             <p className="text-sm text-gray-600 leading-relaxed">{dialogConfig.message}</p>
             <div className="flex justify-end gap-2 pt-2">
+              {dialogConfig.onConfirm && (
+                <button
+                  onClick={() => {
+                    if (dialogConfig.onConfirm) dialogConfig.onConfirm();
+                    setDialogConfig((prev) => ({ ...prev, isOpen: false }));
+                  }}
+                  className="bg-emerald-600 text-white text-xs font-bold py-2 px-4 rounded-xl hover:bg-emerald-700 cursor-pointer"
+                >
+                  تأیید
+                </button>
+              )}
               <button
-                onClick={() => {
-                  if (dialogConfig.onConfirm) dialogConfig.onConfirm();
-                  setDialogConfig((prev) => ({ ...prev, isOpen: false }));
-                }}
-                className="bg-[#1D3557] text-white text-xs font-bold py-2 px-5 rounded-xl hover:bg-[#1D3557]/90"
+                onClick={() => setDialogConfig((prev) => ({ ...prev, isOpen: false }))}
+                className="bg-gray-100 text-gray-700 text-xs font-bold py-2 px-4 rounded-xl hover:bg-gray-200 cursor-pointer"
               >
-                متوجه شدم
+                بستن
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* مودال مشاهده کامل جزئیات سند حقوق (TrainerSalaryStatementDetailsDto) */}
       {selectedStatementForModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto">
@@ -388,7 +517,7 @@ export default function TrainerSalaryPage() {
               </div>
               <button
                 onClick={() => setSelectedStatementForModal(null)}
-                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 cursor-pointer"
               >
                 <HiOutlineX className="w-5 h-5" />
               </button>
@@ -423,7 +552,6 @@ export default function TrainerSalaryPage() {
                 </div>
               </div>
 
-              {/* ریز آیتم‌ها */}
               <div>
                 <span className="font-bold text-[#1D3557] block mb-1.5">ریز آیتم‌ها (Items):</span>
                 <div className="space-y-1.5">
@@ -436,18 +564,26 @@ export default function TrainerSalaryPage() {
                 </div>
               </div>
 
-              {/* تاریخ‌ها */}
               <div className="bg-slate-50 p-3 rounded-xl space-y-1 text-gray-500 text-[11px]">
                 <div>تاریخ محاسبه: {selectedStatementForModal.calculatedAt}</div>
-                <div>تاریخ تأیید: {selectedStatementForModal.approvedAt || 'ثبت نشده'}</div>
-                <div>تاریخ پرداخت: {selectedStatementForModal.paidAt || 'پرداخت نشده'}</div>
+                <div>تاریخ تأیید: {selectedStatementForModal.approvedAt ? convertToPersianDate(selectedStatementForModal.approvedAt) : 'ثبت نشده'}</div>
+                <div>تاریخ پرداخت: {selectedStatementForModal.paidAt ? convertToPersianDate(selectedStatementForModal.paidAt) : 'پرداخت نشده'}</div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            <div className="flex justify-between pt-2">
+              {selectedStatementForModal.status === TrainerSalaryStatus.Approved && (
+                <button
+                  onClick={() => handlePayStatement(selectedStatementForModal.id)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-1 cursor-pointer"
+                >
+                  <HiOutlineCash className="w-4 h-4" />
+                  <span>پرداخت حقوق</span>
+                </button>
+              )}
               <button
                 onClick={() => setSelectedStatementForModal(null)}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-5 rounded-xl text-xs"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-5 rounded-xl text-xs cursor-pointer mr-auto"
               >
                 بستن
               </button>

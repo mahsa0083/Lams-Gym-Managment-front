@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, Suspense, lazy } from 'react'
 import classNames from 'classnames'
 import Drawer from '@/components/ui/Drawer'
@@ -31,7 +33,6 @@ const MobileNavToggle = withHeaderItem<
 
 const MobileNav = ({
     translationSetup = appConfig.activeNavTranslation,
-    children,
 }: MobileNavProps) => {
     const [isOpen, setIsOpen] = useState(false)
 
@@ -44,16 +45,21 @@ const MobileNav = ({
     }
 
     const pathname = usePathname()
-
     const route = queryRoute(pathname)
-
     const currentRouteKey = route?.key || ''
-
     const direction = useTheme((state) => state.direction)
-
     const { session } = useCurrentSession()
-
     const { navigationTree } = useNavigation()
+
+    // 🎯 تشخیص نقش کاربر جهت اعمال data-role و لود رنگ‌های صحیح
+    const getRole = () => {
+        if (pathname.includes('/admin')) return 'ADMIN'
+        if (pathname.includes('/trainer') || pathname.includes('/coach')) return 'TRAINER'
+        if (pathname.includes('/member')) return 'MEMBER'
+        return undefined
+    }
+
+    const role = getRole()
 
     return (
         <>
@@ -61,16 +67,23 @@ const MobileNav = ({
                 <MobileNavToggle toggled={isOpen} />
             </div>
             <Drawer
-                title="Navigation"
+                title=""
                 isOpen={isOpen}
+                header={false} // حذف هدر سفید اضافه
+                closable={false}
                 bodyClass={classNames('p-0 flex flex-col justify-between')}
+                contentClassName="side-nav-bg" // رنگ یک‌دست کل کشو با سایدبار اصلی
                 width={280}
                 placement={direction === DIR_RTL ? 'right' : 'left'}
                 onClose={handleDrawerClose}
             >
-                <Suspense fallback={<></>}>
-                    {isOpen && (
-                        <>
+                {/* 🎨 ایجاد کانتینر اصلی سایدبار با data-role و فاصله مناسب از بالا (pt-6) */}
+                <div 
+                    data-role={role} 
+                    className="side-nav side-nav-bg side-nav-expand h-full w-full flex flex-col pt-6 px-2"
+                >
+                    <Suspense fallback={<></>}>
+                        {isOpen && (
                             <VerticalMenuContent
                                 collapsed={false}
                                 navigationTree={navigationTree}
@@ -80,10 +93,9 @@ const MobileNav = ({
                                 translationSetup={translationSetup}
                                 onMenuItemClick={handleDrawerClose}
                             />
-                            {children}
-                        </>
-                    )}
-                </Suspense>
+                        )}
+                    </Suspense>
+                </div>
             </Drawer>
         </>
     )

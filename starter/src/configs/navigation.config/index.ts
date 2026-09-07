@@ -123,16 +123,16 @@ const navigationConfig: NavigationTree[] = [
         ],
     },
 
-    {
-        key: 'admin.attendance',
-        path: '/admin/attendance',
-        title: 'حضور و غیاب',
-        translateKey: 'nav.admin.attendance',
-        icon: 'checkList',
-        type: NAV_ITEM_TYPE_ITEM,
-        authority: ['ADMIN'],
-        subMenu: [],
-    },
+    // {
+    //     key: 'admin.attendance',
+    //     path: '/admin/attendance',
+    //     title: 'حضور و غیاب',
+    //     translateKey: 'nav.admin.attendance',
+    //     icon: 'checkList',
+    //     type: NAV_ITEM_TYPE_ITEM,
+    //     authority: ['ADMIN'],
+    //     subMenu: [],
+    // },
 
     // ==========================================
     // 🏋️‍♂️ منوهای اختصاصی مربی (TRAINER)

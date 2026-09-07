@@ -1,10 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useTransition } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Select from '@/components/ui/Select'
+import ApiService from '@/services/client/ApiService'
 import {
   HiOutlineAcademicCap,
   HiOutlineUser,
@@ -16,9 +16,7 @@ import {
   HiOutlineChevronUp,
   HiOutlineX,
   HiOutlineCalendar,
-  HiOutlineOfficeBuilding,
   HiOutlineExclamation,
-  HiOutlineTag,
   HiOutlineCheckCircle
 } from 'react-icons/hi'
 
@@ -27,96 +25,30 @@ export interface OptionType {
   label: string
 }
 
+export interface ScheduleItem {
+  id?: number
+  dayOfWeek: string
+  startTime: string
+  endTime: string
+}
+
 export interface Course {
   id: number
   title: string
+  groupName: string
   trainerName: string
-  trainerAvatar: string
-  specialty: string
+  sportName: string
   capacity: number
-  enrolledCount: number
-  price: string
-  status: 'active' | 'full' | 'completed' | 'suspended'
-  schedule: {
-    days: string
-    time: string
-    location: string
-  }
+  remainingCapacity: number
+  startDate: string
+  isActive?: boolean
+  schedules: ScheduleItem[]
   registeredStudents: {
     id: number
     name: string
     phone: string
   }[]
 }
-
-const initialCourses: Course[] = [
-  {
-    id: 1,
-    title: 'دوره جامع بدنسازی و فیتنس',
-    trainerName: 'امیر رضایی',
-    trainerAvatar: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=300',
-    specialty: 'bodybuilding',
-    capacity: 15,
-    enrolledCount: 12,
-    price: '۱,۲۰۰,۰۰۰ تومان',
-    status: 'active',
-    schedule: {
-      days: 'شنبه، چهارشنبه',
-      time: '15:00 الی 18:00',
-      location: 'سالن وزنه - اصلی',
-    },
-    registeredStudents: [
-      { id: 101, name: 'رضا محمدی', phone: '۰۹۱۲۱۱۱۲۲۳۳' },
-      { id: 102, name: 'سارا کاویانی', phone: '۰۹۱۹۲۲۲۳۳۴۴' },
-      { id: 103, name: 'علی نوری', phone: '۰۹۳۵۳۳۳۴۴۵۵' },
-    ],
-  },
-  {
-    id: 2,
-    title: 'کلاس تخصصی هاتایوگا و تمرکز',
-    trainerName: 'مریم کاظمی',
-    trainerAvatar: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?auto=format&fit=crop&q=80&w=300',
-    specialty: 'yoga',
-    capacity: 10,
-    enrolledCount: 10,
-    price: '۹۵۰,۰۰۰ تومان',
-    status: 'full',
-    schedule: {
-      days: 'یکشنبه، سه‌شنبه',
-      time: '10:00 الی 12:00',
-      location: 'سالن یوگا - طبقه ۲',
-    },
-    registeredStudents: [
-      { id: 201, name: 'مهتاب علوی', phone: '۰۹۱۲۴۴۴۵۵۶۶' },
-      { id: 202, name: 'الناز صبوری', phone: '۰۹۱۹۵۵۵۶۶۷۷' },
-    ],
-  },
-]
-
-const filterOptions: OptionType[] = [
-  { value: 'all', label: 'همه رشته‌های ورزشی' },
-  { value: 'bodybuilding', label: 'بدنسازی و پرورشی' },
-  { value: 'fitness', label: 'فیتنس و کراس‌فیت' },
-  { value: 'yoga', label: 'یوگا و مدیتیشن' },
-]
-
-const trainerOptions: OptionType[] = [
-  { value: 'امیر رضایی', label: 'امیر رضایی (بدنسازی)' },
-  { value: 'مریم کاظمی', label: 'مریم کاظمی (یوگا)' },
-]
-
-const specialtyOptions: OptionType[] = [
-  { value: 'bodybuilding', label: 'بدنسازی و پرورشی' },
-  { value: 'fitness', label: 'فیتنس و کراس‌فیت' },
-  { value: 'yoga', label: 'یوگا و مدیتیشن' },
-]
-
-const locationOptions: OptionType[] = [
-  { value: 'سالن وزنه - اصلی', label: 'سالن وزنه - اصلی' },
-  { value: 'سالن یوگا - طبقه ۲', label: 'سالن یوگا - طبقه ۲' },
-  { value: 'سالن کراس‌فیت', label: 'سالن کراس‌فیت' },
-  { value: 'سالن هوازی', label: 'سالن هوازی' },
-]
 
 const hourOptions: OptionType[] = Array.from({ length: 24 }, (_, i) => {
   const hour = (i + 1).toString().padStart(2, '0')
@@ -128,13 +60,21 @@ const minuteOptions: OptionType[] = Array.from({ length: 60 }, (_, i) => {
   return { value: min, label: min }
 })
 
-const WEEK_DAYS = ['شنبه', 'یکشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'دوشنبه']
+const WEEK_DAYS = [
+  { value: 'Saturday', label: 'شنبه' },
+  { value: 'Sunday', label: 'یکشنبه' },
+  { value: 'Monday', label: 'دوشنبه' },
+  { value: 'Tuesday', label: 'سه‌شنبه' },
+  { value: 'Wednesday', label: 'چهارشنبه' },
+  { value: 'Thursday', label: 'پنج‌شنبه' },
+  { value: 'Friday', label: 'جمعه' },
+]
 
 export default function AdminCoursesListPage() {
   const router = useRouter()
-  const [courses, setCourses] = useState<Course[]>(initialCourses)
+  const [courses, setCourses] = useState<Course[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
 
-  const [selectedCategory, setSelectedCategory] = useState<OptionType | null>(filterOptions[0])
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOptions, setSearchOptions] = useState<OptionType[]>([])
   const [isPending, startTransition] = useTransition()
@@ -151,46 +91,40 @@ export default function AdminCoursesListPage() {
   const [startMinute, setStartMinute] = useState<OptionType | null>(minuteOptions[59])
   const [endHour, setEndHour] = useState<OptionType | null>(hourOptions[17])
   const [endMinute, setEndMinute] = useState<OptionType | null>(minuteOptions[59])
-  
-  const [selectedLocation, setSelectedLocation] = useState<OptionType | null>(locationOptions[0])
-  const [selectedTrainer, setSelectedTrainer] = useState<OptionType | null>(trainerOptions[0])
 
   const [formData, setFormData] = useState({
     title: '',
-    specialty: specialtyOptions[0],
+    groupName: '',
     capacity: 15,
-    price: '',
   })
 
-  // خواندن دوره‌های اضافه شده از صفحه افزودن دوره
-  useEffect(() => {
-    const stored = localStorage.getItem('app_courses')
-    if (stored) {
-      try {
-        const parsedStored = JSON.parse(stored)
-        // تبدیل فرمت ذخیره‌شده به فرمت کارت‌های شما در صورت لزوم
-        const formattedStored: Course[] = parsedStored.map((c: any) => ({
-          id: c.id || Date.now(),
-          title: c.title || 'دوره بدون عنوان',
-          trainerName: c.trainerName || 'مربی تعیین نشده',
-          trainerAvatar: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=300',
-          specialty: c.specialty || 'bodybuilding',
-          capacity: Number(c.capacity) || 10,
-          enrolledCount: 0,
-          price: c.fullCoursePrice ? `${c.fullCoursePrice} تومان` : '۰ تومان',
-          status: c.status === 'suspended' ? 'suspended' : 'active',
-          schedule: {
-            days: c.schedule?.days || 'تعیین نشده',
-            time: c.schedule?.time || '۰۰:۰۰ الی ۰۰:۰۰',
-            location: c.location || 'سالن اصلی',
-          },
-          registeredStudents: [],
-        }))
-        setCourses([...formattedStored, ...initialCourses])
-      } catch (e) {
-        console.error(e)
-      }
+  // دریافت لیست کلاس‌ها از طریق ApiService
+  const fetchGymClasses = async () => {
+    try {
+      setLoading(true)
+      const data = await ApiService.get<any[]>('/gym-classes')
+      const formatted: Course[] = data.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        groupName: item.groupName || 'گروه اصلی',
+        trainerName: item.trainerName || 'مربی تعیین نشده',
+        sportName: item.sportName || 'ورزش عمومی',
+        capacity: item.capacity,
+        remainingCapacity: item.remainingCapacity,
+        startDate: item.startDate,
+        schedules: item.schedules || [],
+        registeredStudents: [],
+      }))
+      setCourses(formatted)
+    } catch (error) {
+      console.error('Error fetching gym classes:', error)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
+    fetchGymClasses()
   }, [])
 
   const toggleDaySelection = (day: string) => {
@@ -219,50 +153,46 @@ export default function AdminCoursesListPage() {
     })
   }
 
-  const toggleExpand = (id: number) => {
-    setExpandedCourseId((prev) => (prev === id ? null : id))
-  }
+  // دریافت جزئیات تکمیلی کلاس از طریق ApiService
+  const toggleExpand = async (id: number) => {
+    if (expandedCourseId === id) {
+      setExpandedCourseId(null)
+      return
+    }
 
-  // هدایت مستقیم به صفحه افزودن دوره
-  const handleOpenAddModal = () => {
-    router.push('/admin/course/add-course')
+    setExpandedCourseId(id)
+
+    try {
+      const detailData = await ApiService.get<any>(`/gym-classes/${id}`)
+      setCourses((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...detailData, schedules: detailData.schedules || c.schedules } : c))
+      )
+    } catch (error) {
+      console.error('Error fetching course details:', error)
+    }
   }
 
   const handleOpenEditModal = (course: Course) => {
     setEditingCourseId(course.id)
-
-    const currentSpecialty = specialtyOptions.find((opt) => opt.value === course.specialty) || specialtyOptions[0]
-    const currentTrainer = trainerOptions.find((opt) => opt.value === course.trainerName) || trainerOptions[0]
-
     setFormData({
       title: course.title,
-      specialty: currentSpecialty,
+      groupName: course.groupName,
       capacity: course.capacity,
-      price: course.price.replace(' تومان', ''),
     })
 
-    setSelectedTrainer(currentTrainer)
-
-    if (course.schedule) {
-      const daysArr = course.schedule.days ? course.schedule.days.split('، ') : []
-      setSelectedDays(daysArr)
-
-      if (course.schedule.time) {
-        const [startStr, endStr] = course.schedule.time.split(' الی ')
-        if (startStr) {
-          const [h, m] = startStr.split(':')
-          setStartHour(hourOptions.find((o) => o.value === h) || hourOptions[0])
-          setStartMinute(minuteOptions.find((o) => o.value === m) || minuteOptions[0])
-        }
-        if (endStr) {
-          const [h, m] = endStr.split(':')
-          setEndHour(hourOptions.find((o) => o.value === h) || hourOptions[0])
-          setEndMinute(minuteOptions.find((o) => o.value === m) || minuteOptions[0])
-        }
+    if (course.schedules && course.schedules.length > 0) {
+      setSelectedDays(course.schedules.map((s) => s.dayOfWeek))
+      const firstSchedule = course.schedules[0]
+      if (firstSchedule?.startTime) {
+        const [h, m] = firstSchedule.startTime.split(':')
+        setStartHour(hourOptions.find((o) => o.value === h) || hourOptions[0])
+        setStartMinute(minuteOptions.find((o) => o.value === m) || minuteOptions[0])
       }
-
-      const matchedLoc = locationOptions.find((l) => l.value === course.schedule.location) || locationOptions[0]
-      setSelectedLocation(matchedLoc)
+      if (firstSchedule?.endTime) {
+        const [h, m] = firstSchedule.endTime.split(':')
+        setEndHour(hourOptions.find((o) => o.value === h) || hourOptions[0])
+        setEndMinute(minuteOptions.find((o) => o.value === m) || minuteOptions[0])
+      }
     }
 
     setShowFormModal(true)
@@ -272,96 +202,52 @@ export default function AdminCoursesListPage() {
     setShowFormModal(false)
   }
 
-  const confirmDelete = () => {
+  // حذف یا غیرفعال‌سازی کلاس از طریق ApiService
+  const confirmDelete = async () => {
     if (deleteCourseId !== null) {
-      setCourses((prev) => prev.filter((c) => c.id !== deleteCourseId))
-      setDeleteCourseId(null)
+      try {
+        await ApiService.delete(`/gym-classes/${deleteCourseId}`)
+        setCourses((prev) => prev.filter((c) => c.id !== deleteCourseId))
+      } catch (error) {
+        console.error('Error deleting gym class:', error)
+      } finally {
+        setDeleteCourseId(null)
+      }
     }
   }
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const formattedScheduleDays = selectedDays.length > 0 ? selectedDays.join('، ') : 'تعیین نشده'
-    const startTimeString = startHour && startMinute ? `${startHour.value}:${startMinute.value}` : '00:00'
-    const endTimeString = endHour && endMinute ? `${endHour.value}:${endMinute.value}` : '00:00'
-    const formattedTimeString = `${startTimeString} الی ${endTimeString}`
-    const formattedLocation = selectedLocation ? selectedLocation.value : 'سالن اصلی'
-
     if (editingCourseId) {
-      setCourses((prev) =>
-        prev.map((c) => {
-          if (c.id === editingCourseId) {
-            return {
-              ...c,
-              title: formData.title,
-              specialty: formData.specialty ? formData.specialty.value : c.specialty,
-              trainerName: selectedTrainer ? selectedTrainer.value : c.trainerName,
-              capacity: Number(formData.capacity) || 0,
-              price: formData.price ? `${formData.price} تومان` : c.price,
-              schedule: {
-                days: formattedScheduleDays,
-                time: formattedTimeString,
-                location: formattedLocation,
-              },
-            }
-          }
-          return c
-        })
-      )
-    } else {
-      const newCourse: Course = {
-        id: Date.now(),
-        title: formData.title,
-        trainerName: selectedTrainer ? selectedTrainer.value : 'مربی تعیین نشده',
-        trainerAvatar: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=300',
-        specialty: formData.specialty ? formData.specialty.value : 'bodybuilding',
-        capacity: Number(formData.capacity) || 10,
-        enrolledCount: 0,
-        price: formData.price ? `${formData.price} تومان` : '۰ تومان',
-        status: 'active',
-        schedule: {
-          days: formattedScheduleDays,
-          time: formattedTimeString,
-          location: formattedLocation,
-        },
-        registeredStudents: [],
+      try {
+        const body = {
+          sportId: 1,
+          trainerId: 1,
+          packageId: 1,
+          title: formData.title,
+          groupName: formData.groupName,
+          capacity: Number(formData.capacity),
+        }
+        await ApiService.put(`/gym-classes/${editingCourseId}`, body)
+        fetchGymClasses()
+        setShowFormModal(false)
+      } catch (error) {
+        console.error('Error updating gym class:', error)
       }
-      setCourses([newCourse, ...courses])
     }
-
-    setShowFormModal(false)
   }
 
   const filteredCourses = courses.filter((c) => {
-    const matchesCategory =
-      !selectedCategory || selectedCategory.value === 'all' || c.specialty === selectedCategory.value
     const matchesSearch =
       !searchQuery ||
       c.title.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
       c.trainerName.toLowerCase().includes(searchQuery.toLowerCase().trim())
-    return matchesCategory && matchesSearch
+    return matchesSearch
   })
 
   return (
     <div className="p-6 bg-[var(--primary-subtle)] min-h-screen text-[var(--primary)] dir-rtl" data-role="ADMIN">
-      <style jsx global>{`
-        .no-scrollbar::-webkit-scrollbar,
-        body::-webkit-scrollbar,
-        html::-webkit-scrollbar {
-          display: none;
-          width: 0;
-          height: 0;
-        }
-
-        .no-scrollbar,
-        body,
-        html {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
-
       {/* هدر اصلی */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-[var(--primary-mild)]/30 mb-6">
         <div>
@@ -372,7 +258,6 @@ export default function AdminCoursesListPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-          {/* اتصال مستقیم دکمه تعریف دوره به صفحه افزودن دوره */}
           <Link
             href="/admin/course/add-course"
             className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[var(--primary)] hover:bg-[var(--primary-mild)] text-white font-medium text-xs px-5 py-3 rounded-xl transition-colors shadow-sm shrink-0"
@@ -391,21 +276,16 @@ export default function AdminCoursesListPage() {
               onChange={(opt) => setSearchQuery(opt?.value || '')}
             />
           </div>
-
-          <div className="w-full sm:w-52">
-            <Select<OptionType>
-              options={filterOptions}
-              value={selectedCategory}
-              onChange={(option) => setSelectedCategory(option)}
-              placeholder="دسته‌بندی ورزشی"
-            />
-          </div>
         </div>
       </div>
 
       {/* لیست کارت‌های دوره‌ها */}
       <div className="space-y-4">
-        {filteredCourses.length > 0 ? (
+        {loading ? (
+          <div className="bg-white p-12 rounded-2xl border border-[var(--primary-mild)]/30 text-center">
+            <p className="text-[var(--primary)] font-bold">در حال بارگذاری اطلاعات...</p>
+          </div>
+        ) : filteredCourses.length > 0 ? (
           filteredCourses.map((course) => {
             const isExpanded = expandedCourseId === course.id
 
@@ -416,25 +296,15 @@ export default function AdminCoursesListPage() {
               >
                 <div className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[var(--primary-mild)]/40 shrink-0 shadow-inner bg-[var(--primary-subtle)]">
-                      <Image
-                        src={course.trainerAvatar}
-                        alt={course.trainerName}
-                        fill
-                        className="object-cover"
-                      />
+                    <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[var(--primary-mild)]/40 shrink-0 shadow-inner bg-[var(--primary-subtle)] flex items-center justify-center text-[var(--primary)] font-bold text-lg">
+                      {course.title.charAt(0)}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-lg font-bold text-[var(--primary)]">{course.title}</h3>
-                        
-                        {/* بج وضعیت تعلیق */}
-                        {course.status === 'suspended' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                            در تعلیق
-                          </span>
-                        )}
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          {course.groupName}
+                        </span>
                       </div>
                       <p className="text-xs text-[var(--primary-mild)] flex items-center gap-1.5 mt-1">
                         <HiOutlineUser className="w-4 h-4 text-[var(--primary-mild)]" />
@@ -479,12 +349,12 @@ export default function AdminCoursesListPage() {
 
                 {isExpanded && (
                   <div className="border-t border-[var(--primary-mild)]/30 p-6 bg-[var(--primary-subtle)]/40 space-y-4 animate-fadeIn">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
                       <div className="bg-white p-3.5 rounded-xl border border-[var(--primary-mild)]/30 flex items-center gap-3">
                         <HiOutlineAcademicCap className="w-6 h-6 text-[var(--primary-mild)] shrink-0" />
                         <div>
-                          <span className="text-[var(--primary-mild)] block text-[11px]">رشته دوره:</span>
-                          <span className="font-semibold text-[var(--primary)]">{course.specialty}</span>
+                          <span className="text-[var(--primary-mild)] block text-[11px]">رشته ورزشی:</span>
+                          <span className="font-semibold text-[var(--primary)]">{course.sportName}</span>
                         </div>
                       </div>
 
@@ -493,52 +363,40 @@ export default function AdminCoursesListPage() {
                         <div>
                           <span className="text-[var(--primary-mild)] block text-[11px]">ظرفیت دوره:</span>
                           <span className="font-semibold text-[var(--primary)]">
-                            {course.enrolledCount} از {course.capacity} نفر
+                            {course.capacity - course.remainingCapacity} از {course.capacity} نفر (خالی: {course.remainingCapacity})
                           </span>
-                        </div>
-                      </div>
-
-                      <div className="bg-white p-3.5 rounded-xl border border-[var(--primary-mild)]/30 flex items-center gap-3">
-                        <HiOutlineTag className="w-6 h-6 text-[var(--primary-mild)] shrink-0" />
-                        <div>
-                          <span className="text-[var(--primary-mild)] block text-[11px]">شهریه دوره:</span>
-                          <span className="font-semibold text-[var(--primary)]">{course.price}</span>
                         </div>
                       </div>
 
                       <div className="bg-white p-3.5 rounded-xl border border-[var(--primary-mild)]/30 flex items-center gap-3">
                         <HiOutlineCheckCircle className="w-6 h-6 text-[var(--primary-deep)] shrink-0" />
                         <div>
-                          <span className="text-[var(--primary-mild)] block text-[11px]">وضعیت دوره:</span>
-                          <span className="font-bold text-[var(--primary-deep)]">
-                            {course.status === 'active'
-                              ? 'در حال ثبت‌نام'
-                              : course.status === 'full'
-                              ? 'تکمیل ظرفیت'
-                              : course.status === 'suspended'
-                              ? 'در تعلیق'
-                              : 'پایان‌یافته'}
-                          </span>
+                          <span className="text-[var(--primary-mild)] block text-[11px]">تاریخ شروع:</span>
+                          <span className="font-bold text-[var(--primary-deep)]">{course.startDate}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* زمان‌بندی و سالن */}
+                    {/* زمان‌بندی */}
                     <div className="bg-white p-4 rounded-xl border border-[var(--primary-mild)]/30 space-y-2">
                       <h4 className="text-xs font-bold text-[var(--primary)] flex items-center gap-1.5">
                         <HiOutlineClock className="w-4 h-4 text-[var(--primary-mild)]" />
-                        <span>زمان‌بندی و سالن برگزاری:</span>
+                        <span>زمان‌بندی کلاس:</span>
                       </h4>
-                      <div className="bg-[var(--primary-subtle)]/60 p-3 rounded-lg border border-[var(--primary-mild)]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                        <span className="font-semibold flex items-center gap-1">
-                          <HiOutlineCalendar className="w-4 h-4 text-[var(--primary-mild)]" />
-                          روزها: {course.schedule.days}
-                        </span>
-                        <span className="text-[var(--primary-mild)] font-mono">ساعت: {course.schedule.time}</span>
-                        <span className="text-[11px] text-[var(--primary-mild)] flex items-center gap-1">
-                          <HiOutlineOfficeBuilding className="w-4 h-4" />
-                          مکان: {course.schedule.location}
-                        </span>
+                      <div className="space-y-2">
+                        {course.schedules && course.schedules.length > 0 ? (
+                          course.schedules.map((sch, idx) => (
+                            <div key={idx} className="bg-[var(--primary-subtle)]/60 p-3 rounded-lg border border-[var(--primary-mild)]/20 flex items-center justify-between text-xs">
+                              <span className="font-semibold flex items-center gap-1 text-[#4B5694]">
+                                <HiOutlineCalendar className="w-4 h-4 text-[#111844]" />
+                                روز: {sch.dayOfWeek}
+                              </span>
+                              <span className="text-[var(--primary)] font-semibold">ساعت: {sch.startTime} الی {sch.endTime}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-[var(--primary-mild)]">برنامه زمانی ثبت نشده است.</p>
+                        )}
                       </div>
                     </div>
 
@@ -574,7 +432,6 @@ export default function AdminCoursesListPage() {
         ) : (
           <div className="bg-white p-12 rounded-2xl border border-[var(--primary-mild)]/30 text-center space-y-3">
             <p className="text-[var(--primary)] font-bold">دوره‌ای با این مشخصات یافت نشد.</p>
-            <p className="text-xs text-[var(--primary-mild)]">لطفاً عبارت جستجو یا دسته‌بندی ورزشی را تغییر دهید.</p>
           </div>
         )}
       </div>
@@ -582,11 +439,9 @@ export default function AdminCoursesListPage() {
       {/* مودال ویرایش دوره */}
       {showFormModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-xl w-full border border-[var(--primary-mild)]/30 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto no-scrollbar">
+          <div className="bg-white rounded-2xl p-6 max-w-xl w-full border border-[var(--primary-mild)]/30 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[var(--primary-mild)]/20 pb-3">
-              <h3 className="text-base font-bold text-[var(--primary)]">
-                {editingCourseId ? 'ویرایش اطلاعات دوره' : 'تعریف دوره جدید'}
-              </h3>
+              <h3 className="text-base font-bold text-[var(--primary)]">ویرایش اطلاعات دوره</h3>
               <button
                 type="button"
                 onClick={handleCancelForm}
@@ -602,57 +457,32 @@ export default function AdminCoursesListPage() {
                 <input
                   type="text"
                   required
-                  placeholder="مثلا: بدنسازی پیشرفته ترم بهار"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   className="w-full px-3 py-2.5 border border-[var(--primary-mild)]/40 rounded-xl text-[var(--primary)] focus:outline-none focus:border-[var(--primary)] bg-[var(--primary-subtle)]/30"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[var(--primary)] mb-1">رشته ورزشی</label>
-                  <Select<OptionType>
-                    options={specialtyOptions}
-                    value={formData.specialty}
-                    onChange={(option) => setFormData({ ...formData, specialty: option || specialtyOptions[0] })}
-                    placeholder="انتخاب رشته"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[var(--primary)] mb-1">مربی دوره</label>
-                  <Select<OptionType>
-                    options={trainerOptions}
-                    value={selectedTrainer}
-                    onChange={(option) => setSelectedTrainer(option)}
-                    placeholder="انتخاب مربی..."
-                  />
-                </div>
+              <div>
+                <label className="block font-semibold text-[var(--primary)] mb-1">نام گروه</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.groupName}
+                  onChange={(e) => setFormData({ ...formData, groupName: e.target.value })}
+                  className="w-full px-3 py-2.5 border border-[var(--primary-mild)]/40 rounded-xl text-[var(--primary)] focus:outline-none focus:border-[var(--primary)] bg-[var(--primary-subtle)]/30"
+                />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[var(--primary)] mb-1">ظرفیت دوره (نفر)</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="مثلا: ۱۵"
-                    value={formData.capacity}
-                    onChange={(e) => setFormData({ ...formData, capacity: Number(e.target.value) })}
-                    className="w-full px-3 py-2.5 border border-[var(--primary-mild)]/40 rounded-xl text-[var(--primary)] focus:outline-none focus:border-[var(--primary)] bg-[var(--primary-subtle)]/30"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[var(--primary)] mb-1">شهریه دوره (تومان)</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="مثلا: ۱,۲۰۰,۰۰۰"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[var(--primary-mild)]/40 rounded-xl text-[var(--primary)] focus:outline-none focus:border-[var(--primary)] bg-[var(--primary-subtle)]/30"
-                  />
-                </div>
+              <div>
+                <label className="block font-semibold text-[var(--primary)] mb-1">ظرفیت دوره (نفر)</label>
+                <input
+                  type="number"
+                  required
+                  value={formData.capacity}
+                  onChange={(e) => setFormData({ ...formData, capacity: Number(e.target.value) })}
+                  className="w-full px-3 py-2.5 border border-[var(--primary-mild)]/40 rounded-xl text-[var(--primary)] focus:outline-none focus:border-[var(--primary)] bg-[var(--primary-subtle)]/30"
+                />
               </div>
 
               <div className="p-4 bg-[var(--primary-subtle)]/60 rounded-xl border border-[var(--primary-mild)]/30 space-y-3">
@@ -667,77 +497,23 @@ export default function AdminCoursesListPage() {
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {WEEK_DAYS.map((day) => {
-                      const isSelected = selectedDays.includes(day)
+                      const isSelected = selectedDays.includes(day.value)
                       return (
                         <button
-                          key={day}
+                          key={day.value}
                           type="button"
-                          onClick={() => toggleDaySelection(day)}
+                          onClick={() => toggleDaySelection(day.value)}
                           className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
                             isSelected
                               ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm'
                               : 'bg-white text-[var(--primary-mild)] border-[var(--primary-mild)]/30 hover:border-[var(--primary)]'
                           }`}
                         >
-                          {day}
+                          {day.label}
                         </button>
                       )
                     })}
                   </div>
-                </div>
-
-                <div className="space-y-1 pt-1">
-                  <label className="block text-[11px] text-[var(--primary-mild)] font-medium">زمان شروع کلاس</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Select<OptionType>
-                        options={hourOptions}
-                        value={startHour}
-                        onChange={(option) => setStartHour(option)}
-                        placeholder="ساعت (۱ تا ۲۴)"
-                      />
-                    </div>
-                    <div>
-                      <Select<OptionType>
-                        options={minuteOptions}
-                        value={startMinute}
-                        onChange={(option) => setStartMinute(option)}
-                        placeholder="دقیقه (۱ تا ۶۰)"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-1">
-                  <label className="block text-[11px] text-[var(--primary-mild)] font-medium">زمان پایان کلاس</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Select<OptionType>
-                        options={hourOptions}
-                        value={endHour}
-                        onChange={(option) => setEndHour(option)}
-                        placeholder="ساعت (۱ تا ۲۴)"
-                      />
-                    </div>
-                    <div>
-                      <Select<OptionType>
-                        options={minuteOptions}
-                        value={endMinute}
-                        onChange={(option) => setEndMinute(option)}
-                        placeholder="دقیقه (۱ تا ۶۰)"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-1">
-                  <label className="block text-[11px] text-[var(--primary-mild)] mb-1 font-medium">انتخاب سالن / مکان برگزاری</label>
-                  <Select<OptionType>
-                    options={locationOptions}
-                    value={selectedLocation}
-                    onChange={(option) => setSelectedLocation(option)}
-                    placeholder="انتخاب سالن..."
-                  />
                 </div>
               </div>
 
@@ -753,7 +529,7 @@ export default function AdminCoursesListPage() {
                   type="submit"
                   className="bg-[var(--primary)] hover:bg-[var(--primary-mild)] text-white font-semibold px-5 py-2.5 rounded-xl transition-colors shadow-sm"
                 >
-                  {editingCourseId ? 'ثبت تغییرات' : 'ثبت دوره'}
+                  ثبت تغییرات
                 </button>
               </div>
             </form>
@@ -769,9 +545,9 @@ export default function AdminCoursesListPage() {
               <HiOutlineExclamation className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[var(--primary)]">حذف دوره</h3>
+              <h3 className="text-base font-bold text-[var(--primary)]">غیرفعال‌سازی دوره</h3>
               <p className="text-xs text-[var(--primary-mild)] mt-1">
-                آیا از حذف این دوره اطمینان دارید؟ این عملیات قابل بازگشت نیست.
+                آیا از غیرفعال‌سازی این دوره اطمینان دارید؟
               </p>
             </div>
             <div className="flex justify-center gap-2 pt-2">
@@ -787,7 +563,7 @@ export default function AdminCoursesListPage() {
                 onClick={confirmDelete}
                 className="px-4 py-2 rounded-xl bg-[var(--primary-deep)] hover:opacity-90 text-white font-medium text-xs transition-colors"
               >
-                حذف شود
+                تأیید
               </button>
             </div>
           </div>
