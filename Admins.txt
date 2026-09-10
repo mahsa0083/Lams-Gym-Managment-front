@@ -1,0 +1,90 @@
+Swagger API Documentation - Admins
+Base URL: https://api.lamisens.ir
+
+for:دریافت لیست تمام ادمین‌ها------->get
+endponit:/api/admins
+request:
+response:
+[
+  {
+    "id": 0,
+    "firstName": "string",
+    "lastName": "string",
+    "nationalCode": "string",
+    "phoneNumber": "string"
+  }
+]
+
+
+for:ایجاد ادمین جدید------->post
+endponit:/api/admins
+request:
+{
+  "firstName": "string",
+  "lastName": "string",
+  "nationalCode": "string",
+  "phoneNumber": "string"
+}
+response:
+
+
+for:دریافت اطلاعات یک ادمین------->get
+endponit:/api/admins/{id}
+request:
+id: 0
+response:
+{
+  "id": 0,
+  "firstName": "string",
+  "lastName": "string",
+  "nationalCode": "string",
+  "phoneNumber": "string"
+}
+
+
+for:ویرایش اطلاعات ادمین------->put
+endponit:/api/admins/{id}
+request:
+id: 0
+body:
+{
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string"
+}
+response:
+
+
+for:دریافت آخرین ثبت‌نام‌ها------->get
+endponit:/api/admins/recent-subscriptions
+request:
+response:
+[
+  {
+    "firstName": "string",
+    "lastName": "string",
+    "nationalCode": "string",
+    "packageName": "string",
+    "amount": 0,
+    "paymentMethod": "Cash",
+    "trainerFullName": "string"
+  }
+]
+
+
+for:دریافت تمام پرداخت‌های موفق------->get
+endponit:/api/admins/payments
+request:
+response:
+[
+  {
+    "firstName": "string",
+    "lastName": "string",
+    "nationalCode": "string",
+    "packageName": "string",
+    "amount": 0,
+    "paymentMethod": "Cash",
+    "trainerFullName": "string",
+    "paidAt": "2026-01-01T00:00:00Z"
+  }
+]

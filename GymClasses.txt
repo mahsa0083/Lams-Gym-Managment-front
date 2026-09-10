@@ -1,0 +1,197 @@
+Swagger API Documentation - GymClasses
+Base URL: https://api.lamisens.ir
+
+for:دریافت کلاس‌های فعال------->get
+endponit:/api/gym-classes
+request:
+response:
+[
+  {
+    "id": 0,
+    "title": "string",
+    "groupName": "string",
+    "trainerName": "string",
+    "sportName": "string",
+    "capacity": 0,
+    "remainingCapacity": 0,
+    "startDate": "2026-01-01",
+    "schedules": [
+      {
+        "id": 0,
+        "dayOfWeek": "Sunday",
+        "startTime": "string",
+        "endTime": "string"
+      }
+    ]
+  }
+]
+
+
+for:ایجاد کلاس جدید------->post
+endponit:/api/gym-classes
+request:
+{
+  "sportId": 0,
+  "trainerId": 0,
+  "packageId": 0,
+  "title": "string",
+  "groupName": "string",
+  "capacity": 0,
+  "startDate": "2026-01-01",
+  "schedules": [
+    {
+      "dayOfWeek": "Sunday",
+      "startTime": "string",
+      "endTime": "string"
+    }
+  ]
+}
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}
+
+
+for:دریافت جزئیات کلاس------->get
+endponit:/api/gym-classes/{id}
+request:
+id: 0
+response:
+{
+  "id": 0,
+  "title": "string",
+  "groupName": "string",
+  "trainerName": "string",
+  "sportName": "string",
+  "capacity": 0,
+  "remainingCapacity": 0,
+  "startDate": "2026-01-01",
+  "isActive": false,
+  "schedules": [
+    {
+      "id": 0,
+      "dayOfWeek": "Sunday",
+      "startTime": "string",
+      "endTime": "string"
+    }
+  ]
+}
+
+
+for:ویرایش کلاس------->put
+endponit:/api/gym-classes/{id}
+request:
+id: 0
+body:
+{
+  "sportId": 0,
+  "trainerId": 0,
+  "packageId": 0,
+  "title": "string",
+  "groupName": "string",
+  "capacity": 0
+}
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}
+
+
+for:غیرفعال‌سازی کلاس------->delete
+endponit:/api/gym-classes/{id}
+request:
+id: 0
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}
+
+
+for:افزودن برنامه زمانی کلاس------->post
+endponit:/api/gym-classes/{gymClassId}/schedules
+request:
+gymClassId: 0
+body:
+{
+  "dayOfWeek": "Sunday",
+  "startTime": "string",
+  "endTime": "string"
+}
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}
+
+
+for:ویرایش برنامه زمانی کلاس------->put
+endponit:/api/gym-classes/schedules/{scheduleId}
+request:
+scheduleId: 0
+body:
+{
+  "dayOfWeek": "Sunday",
+  "startTime": "string",
+  "endTime": "string"
+}
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}
+
+
+for:حذف برنامه زمانی کلاس------->delete
+endponit:/api/gym-classes/schedules/{scheduleId}
+request:
+scheduleId: 0
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}
+
+
+for:دریافت کلاس‌های یک پکیج------->get
+endponit:/api/gym-classes/{packageId}/classes
+request:
+packageId: 0
+response:
+[
+  {
+    "gymClassId": 0,
+    "title": "string",
+    "capacity": 0,
+    "startDate": "2026-01-01",
+    "remainingSessions": 0,
+    "trainerFullName": "string",
+    "schedules": [
+      {
+        "dayOfWeek": "Sunday",
+        "startTime": "string",
+        "endTime": "string"
+      }
+    ]
+  }
+]

@@ -1,0 +1,236 @@
+Swagger API Documentation - Members
+Base URL: https://api.lamisens.ir
+
+for:دریافت لیست اعضای فعال------->get
+endponit:/api/members
+request:
+response:
+[
+  {
+    "id": 0,
+    "firstName": "string",
+    "lastName": "string",
+    "phoneNumber": "string",
+    "nationalCode": "string",
+    "gender": "Female",
+    "birthDate": "2026-01-01",
+    "joinDate": "2026-01-01T00:00:00Z"
+  }
+]
+
+
+for:ایجاد عضو جدید------->post
+endponit:/api/members
+request:
+{
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "nationalCode": "string",
+  "gender": "Female",
+  "medicalNotes": "string",
+  "emergencyPhone": "string",
+  "birthDate": "2026-01-01"
+}
+response:
+{
+  "id": 0,
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "nationalCode": "string",
+  "gender": "Female",
+  "birthDate": "2026-01-01",
+  "joinDate": "2026-01-01T00:00:00Z"
+}
+
+
+for:دریافت عضو------->get
+endponit:/api/members/{id}
+request:
+id: 0
+response:
+{
+  "id": 0,
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "nationalCode": "string",
+  "gender": "Female",
+  "birthDate": "2026-01-01",
+  "joinDate": "2026-01-01T00:00:00Z"
+}
+
+
+for:ویرایش اطلاعات عضو توسط ادمین------->put
+endponit:/api/members/{id}
+request:
+id: 0
+body:
+{
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "nationalCode": "string",
+  "gender": "Female",
+  "isActive": false,
+  "medicalNotes": "string",
+  "emergencyPhone": "string",
+  "birthDate": "2026-01-01"
+}
+response:
+
+
+for:غیرفعال‌سازی عضو------->delete
+endponit:/api/members/{id}
+request:
+id: 0
+response:
+
+
+for:ویرایش پروفایل عضو------->put
+endponit:/api/members/{id}/profile
+request:
+id: 0
+body:
+{
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "medicalNotes": "string",
+  "emergencyPhone": "string",
+  "birthDate": "2026-01-01"
+}
+response:
+
+
+for:دریافت جزئیات کامل عضو------->get
+endponit:/api/members/{id}/details
+request:
+id: 0
+response:
+{
+  "id": 0,
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "nationalCode": "string",
+  "gender": "Female",
+  "birthDate": "2026-01-01",
+  "joinDate": "2026-01-01T00:00:00Z",
+  "medicalNotes": "string",
+  "emergencyPhone": "string",
+  "isActive": false,
+  "subscriptions": [
+    {
+      "subscriptionId": 0,
+      "packageName": "string",
+      "trainerFullName": "string",
+      "startDate": "2026-01-01",
+      "endDate": "2026-01-01",
+      "totalSessions": 0,
+      "remainingSessions": 0,
+      "status": "PendingPayment"
+    }
+  ],
+  "courses": [
+    {
+      "enrollmentId": 0,
+      "classId": 0,
+      "classTitle": "string",
+      "groupName": "string",
+      "sportName": "string",
+      "trainerFullName": "string",
+      "schedules": [
+        {
+          "dayOfWeek": "Sunday",
+          "startTime": "string",
+          "endTime": "string"
+        }
+      ],
+      "attendances": [
+        {
+          "attendanceDate": "2026-01-01",
+          "isPresent": false
+        }
+      ]
+    }
+  ]
+}
+
+
+for:دریافت سوابق کلاس‌های عضو------->get
+endponit:/api/members/{id}/courses
+request:
+id: 0
+response:
+{
+  "memberId": 0,
+  "firstName": "string",
+  "lastName": "string",
+  "nationalCode": "string",
+  "courses": [
+    {
+      "enrollmentId": 0,
+      "classId": 0,
+      "classTitle": "string",
+      "groupName": "string",
+      "sportName": "string",
+      "trainerFullName": "string",
+      "schedules": [
+        {
+          "dayOfWeek": "Sunday",
+          "startTime": "string",
+          "endTime": "string"
+        }
+      ],
+      "attendances": [
+        {
+          "attendanceDate": "2026-01-01",
+          "isPresent": false
+        }
+      ]
+    }
+  ]
+}
+
+
+for:دریافت سوابق اشتراک‌های عضو------->get
+endponit:/api/members/{id}/subscriptions
+request:
+id: 0
+response:
+{
+  "memberId": 0,
+  "memberName": "string",
+  "nationalCode": "string",
+  "subscriptions": [
+    {
+      "subscriptionId": 0,
+      "packageName": "string",
+      "trainerFullName": "string",
+      "startDate": "2026-01-01",
+      "endDate": "2026-01-01",
+      "totalSessions": 0,
+      "remainingSessions": 0,
+      "status": "PendingPayment"
+    }
+  ]
+}
+
+
+for:دریافت سوابق پرداخت‌های عضو------->get
+endponit:/api/members/{id}/payments
+request:
+id: 0
+response:
+[
+  {
+    "packageName": "string",
+    "trainerFirstName": "string",
+    "trainerLastName": "string",
+    "amount": 0,
+    "paymentMethod": "Cash",
+    "paidAt": "2026-01-01T00:00:00Z"
+  }
+]

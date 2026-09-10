@@ -40,23 +40,23 @@ export interface UserProfileDto {
     gender: number
     birthDate: string
     joinDate?: string
+    medicalNotes?: string
+    emergencyPhone?: string
 }
 
 export interface UpdateUserProfileDto {
     firstName: string
     lastName: string
     phoneNumber: string
-    nationalCode: string
-    gender: number
+    medicalNotes: string
+    emergencyPhone: string
     birthDate: string
 }
 
 // تابع کمکی برای پاکسازی و حذف بخش ساعت از تاریخ
 const formatOnlyDate = (dateString?: string): string => {
     if (!dateString) return '1375/06/15'
-
     const cleanDate = dateString.split('T')[0]
-
     return cleanDate.replace(/-/g, '/')
 }
 
@@ -65,15 +65,17 @@ export default function UserProfilePage() {
 
     const [userData, setUserData] = useState<UserProfileDto | null>(null)
 
-    const [formData, setFormData] =
-        useState<UpdateUserProfileDto>({
-            firstName: '',
-            lastName: '',
-            phoneNumber: '',
-            nationalCode: '',
-            gender: 0,
-            birthDate: '1375/06/15',
-        })
+    const [formData, setFormData] = useState<UpdateUserProfileDto>({
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
+        medicalNotes: '',
+        emergencyPhone: '',
+        birthDate: '1375/06/15',
+    })
+
+    const [nationalCode, setNationalCode] = useState<string>('')
+    const [gender, setGender] = useState<number>(0)
 
     const [loading, setLoading] = useState<boolean>(true)
     const [saving, setSaving] = useState<boolean>(false)
@@ -96,12 +98,10 @@ export default function UserProfilePage() {
 
         if (!accessToken) {
             setLoading(false)
-
             setMessage({
                 type: 'error',
                 text: 'توکن دسترسی در Session پیدا نشد.',
             })
-
             return
         }
 
@@ -112,58 +112,42 @@ export default function UserProfilePage() {
                 setLoading(true)
                 setMessage(null)
 
-                // گرفتن اطلاعات کاربر از JWT
                 const jwtUser = getJwtUser(accessToken)
 
                 if (!jwtUser.id) {
-                    throw new Error(
-                        'شناسه کاربر در JWT پیدا نشد.',
-                    )
+                    throw new Error('شناسه کاربر در JWT پیدا نشد.')
                 }
 
                 if (jwtUser.role === null) {
-                    throw new Error(
-                        'Role کاربر در JWT پیدا نشد.',
-                    )
+                    throw new Error('Role کاربر در JWT پیدا نشد.')
                 }
 
-                console.log('User ID:', jwtUser.id)
-                console.log('User Role:', jwtUser.role)
-
-                // ارسال ID و Role به API
-                const response =
-                    await ApiService.get<UserProfileDto>(
-                        `/members/${jwtUser.id}?role=${jwtUser.role}`,
-                    )
+                const response = await ApiService.get<UserProfileDto>(
+                    `/members/${jwtUser.id}?role=${jwtUser.role}`
+                )
 
                 if (cancelled) return
 
                 if (!response) {
-                    throw new Error(
-                        'اطلاعات پروفایل دریافت نشد.',
-                    )
+                    throw new Error('اطلاعات پروفایل دریافت نشد.')
                 }
 
                 setUserData(response)
+                setNationalCode(response.nationalCode ?? '')
+                setGender(response.gender ?? 0)
 
                 setFormData({
                     firstName: response.firstName ?? '',
                     lastName: response.lastName ?? '',
                     phoneNumber: response.phoneNumber ?? '',
-                    nationalCode: response.nationalCode ?? '',
-                    gender: response.gender ?? 0,
-                    birthDate: formatOnlyDate(
-                        response.birthDate,
-                    ),
+                    medicalNotes: response.medicalNotes ?? '',
+                    emergencyPhone: response.emergencyPhone ?? '',
+                    birthDate: formatOnlyDate(response.birthDate),
                 })
             } catch (error) {
                 if (cancelled) return
 
-                console.error(
-                    'Error fetching user profile:',
-                    error,
-                )
-
+                console.error('Error fetching user profile:', error)
                 setMessage({
                     type: 'error',
                     text:
@@ -187,7 +171,7 @@ export default function UserProfilePage() {
 
     // تغییر مقادیر Input
     const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement>,
+        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
     ) => {
         const { name, value } = e.target
 
@@ -201,16 +185,10 @@ export default function UserProfilePage() {
         }
     }
 
-    // تغییر جنسیت
-    const handleGenderChange = (
-        selectedOption: OptionType | null,
-    ) => {
+    // تغییر جنسیت (فقط نمایشی چون در دیتای اندپوینت پروفایل نیست)
+    const handleGenderChange = (selectedOption: OptionType | null) => {
         if (selectedOption) {
-            setFormData((prev) => ({
-                ...prev,
-                gender: selectedOption.value,
-            }))
-
+            setGender(selectedOption.value)
             if (message) {
                 setMessage(null)
             }
@@ -218,9 +196,7 @@ export default function UserProfilePage() {
     }
 
     // تغییر تاریخ تولد
-    const handleDateChange = (
-        date: DateObject | null,
-    ) => {
+    const handleDateChange = (date: DateObject | null) => {
         if (date) {
             setFormData((prev) => ({
                 ...prev,
@@ -233,10 +209,8 @@ export default function UserProfilePage() {
         }
     }
 
-    // ذخیره اطلاعات
-    const handleSubmit = async (
-        e: React.FormEvent<HTMLFormElement>,
-    ) => {
+    // ذخیره اطلاعات (استفاده از اندپوینت اختصاصی پروفایل)[cite: 1]
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
 
         if (!userData) return
@@ -245,9 +219,10 @@ export default function UserProfilePage() {
             setSaving(true)
             setMessage(null)
 
+            // Endpoint: /api/members/{id}/profile[cite: 1]
             await ApiService.put(
-                `/members/${userData.id}`,
-                formData,
+                `/members/${userData.id}/profile`,
+                formData
             )
 
             setUserData((prev) => {
@@ -256,6 +231,8 @@ export default function UserProfilePage() {
                 return {
                     ...prev,
                     ...formData,
+                    gender: gender,
+                    nationalCode: nationalCode,
                 }
             })
 
@@ -264,15 +241,10 @@ export default function UserProfilePage() {
                 text: 'اطلاعات پروفایل با موفقیت ویرایش شد.',
             })
         } catch (error) {
-            console.error(
-                'Error updating user profile:',
-                error,
-            )
-
+            console.error('Error updating user profile:', error)
             setMessage({
                 type: 'error',
-                text:
-                    'خطا در ذخیره‌سازی اطلاعات. لطفاً دوباره تلاش کنید.',
+                text: 'خطا در ذخیره‌سازی اطلاعات. لطفاً دوباره تلاش کنید.',
             })
         } finally {
             setSaving(false)
@@ -280,17 +252,13 @@ export default function UserProfilePage() {
     }
 
     const currentGenderOption =
-        genderOptions.find(
-            (opt) => opt.value === formData.gender,
-        ) ?? null
+        genderOptions.find((opt) => opt.value === gender) ?? null
 
-    // Loading
     if (loading || status === 'loading') {
         return (
             <div className="p-12 text-center text-gray-800 flex min-h-[500px] items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
                     <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#E63946]" />
-
                     <p className="text-sm text-gray-500">
                         در حال دریافت اطلاعات پروفایل...
                     </p>
@@ -299,7 +267,6 @@ export default function UserProfilePage() {
         )
     }
 
-    // کاربر لاگین نیست
     if (status !== 'authenticated') {
         return (
             <div className="p-12 text-center text-gray-800 flex min-h-[500px] items-center justify-center dir-rtl">
@@ -314,25 +281,20 @@ export default function UserProfilePage() {
 
     return (
         <div className="p-4 sm:p-8 space-y-8 bg-gray-50/50 min-h-screen text-gray-900 dir-rtl max-w-5xl mx-auto">
-
             {/* هدر صفحه */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-4">
-
                     <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gray-100 flex items-center justify-center border border-gray-200 shrink-0 shadow-2xs text-[#E63946]">
                         <HiOutlineUser className="w-10 h-10 sm:w-12 sm:h-12" />
                     </div>
-
                     <div>
                         <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 flex items-center gap-2">
                             <span>پروفایل کاربری</span>
                         </h1>
-
                         <p className="text-xs sm:text-sm text-gray-500 mt-1">
                             مدیریت و ویرایش اطلاعات حساب کاربری و مشخصات شخصی
                         </p>
                     </div>
-
                 </div>
             </div>
 
@@ -350,7 +312,6 @@ export default function UserProfilePage() {
                     ) : (
                         <HiOutlineExclamationCircle className="h-5 w-5 shrink-0" />
                     )}
-
                     <span className="text-sm font-semibold">
                         {message.text}
                     </span>
@@ -359,30 +320,22 @@ export default function UserProfilePage() {
 
             {/* فرم اطلاعات پروفایل */}
             <div className="bg-white p-6 sm:p-10 rounded-3xl border border-gray-100 shadow-sm">
-
-                <form
-                    onSubmit={handleSubmit}
-                    className="space-y-8"
-                >
-
+                <form onSubmit={handleSubmit} className="space-y-8">
                     <div className="border-b border-gray-100 pb-5">
                         <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                             اطلاعات شخصی
                         </h2>
-
                         <p className="text-xs sm:text-sm text-gray-500 mt-1">
                             لطفاً مشخصات خود را طبق مدارک شناسایی معتبر وارد کنید.
                         </p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-
                         {/* نام */}
                         <div>
                             <label className="block text-xs sm:text-sm font-bold text-gray-800 mb-2.5">
                                 نام
                             </label>
-
                             <input
                                 type="text"
                                 name="firstName"
@@ -399,7 +352,6 @@ export default function UserProfilePage() {
                             <label className="block text-xs sm:text-sm font-bold text-gray-800 mb-2.5">
                                 نام خانوادگی
                             </label>
-
                             <input
                                 type="text"
                                 name="lastName"
@@ -416,7 +368,6 @@ export default function UserProfilePage() {
                             <label className="block text-xs sm:text-sm font-bold text-gray-800 mb-2.5">
                                 شماره همراه
                             </label>
-
                             <input
                                 type="text"
                                 name="phoneNumber"
@@ -429,22 +380,17 @@ export default function UserProfilePage() {
                             />
                         </div>
 
-                        {/* کد ملی */}
+                        {/* کد ملی (غیرقابل ویرایش در این متد) */}
                         <div>
-                            <label className="block text-xs sm:text-sm font-bold text-gray-800 mb-2.5">
-                                کد ملی
+                            <label className="block text-xs sm:text-sm font-bold text-gray-500 mb-2.5">
+                                کد ملی (غیرقابل تغییر)
                             </label>
-
                             <input
                                 type="text"
-                                name="nationalCode"
-                                value={formData.nationalCode}
-                                onChange={handleChange}
-                                required
-                                maxLength={10}
-                                disabled={saving}
+                                value={nationalCode}
+                                disabled
                                 dir="ltr"
-                                className="w-full bg-gray-50/50 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-gray-900 text-right focus:outline-none focus:border-gray-400 focus:bg-white transition-all"
+                                className="w-full bg-gray-100/60 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-gray-500 text-right cursor-not-allowed select-none"
                             />
                         </div>
 
@@ -453,7 +399,6 @@ export default function UserProfilePage() {
                             <label className="block text-xs sm:text-sm font-bold text-gray-800 mb-2.5">
                                 جنسیت
                             </label>
-
                             <Select<OptionType>
                                 options={genderOptions}
                                 value={currentGenderOption}
@@ -467,9 +412,7 @@ export default function UserProfilePage() {
                             <label className="block text-xs sm:text-sm font-bold text-gray-800 mb-2.5">
                                 تاریخ تولد
                             </label>
-
                             <div className="relative">
-
                                 <DatePicker
                                     calendar={persian}
                                     locale={persian_fa}
@@ -482,37 +425,59 @@ export default function UserProfilePage() {
                                         width: '100%',
                                     }}
                                 />
-
                                 <HiOutlineCalendar className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 pointer-events-none z-10" />
-
                             </div>
+                        </div>
+
+                        {/* نکات پزشکی */}
+                        <div>
+                            <label className="block text-xs sm:text-sm font-bold text-gray-800 mb-2.5">
+                                نکات پزشکی
+                            </label>
+                            <input
+                                type="text"
+                                name="medicalNotes"
+                                value={formData.medicalNotes}
+                                onChange={handleChange}
+                                disabled={saving}
+                                className="w-full bg-gray-50/50 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-gray-900 focus:outline-none focus:border-gray-400 focus:bg-white transition-all"
+                            />
+                        </div>
+
+                        {/* شماره اضطراری */}
+                        <div>
+                            <label className="block text-xs sm:text-sm font-bold text-gray-800 mb-2.5">
+                                شماره تماس اضطراری
+                            </label>
+                            <input
+                                type="text"
+                                name="emergencyPhone"
+                                value={formData.emergencyPhone}
+                                onChange={handleChange}
+                                disabled={saving}
+                                dir="ltr"
+                                className="w-full bg-gray-50/50 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-gray-900 text-right focus:outline-none focus:border-gray-400 focus:bg-white transition-all"
+                            />
                         </div>
 
                         {/* تاریخ عضویت */}
                         {userData?.joinDate && (
                             <div className="md:col-span-2">
-
                                 <label className="block text-xs sm:text-sm font-bold text-gray-500 mb-2.5">
                                     تاریخ عضویت در سیستم
                                 </label>
-
                                 <input
                                     type="text"
-                                    value={formatOnlyDate(
-                                        userData.joinDate,
-                                    )}
+                                    value={formatOnlyDate(userData.joinDate)}
                                     disabled
                                     className="w-full bg-gray-100/60 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-gray-500 cursor-not-allowed select-none"
                                 />
-
                             </div>
                         )}
-
                     </div>
 
                     {/* دکمه ذخیره */}
                     <div className="flex justify-end pt-6 border-t border-gray-100">
-
                         <button
                             type="submit"
                             disabled={saving || !userData}
@@ -521,26 +486,17 @@ export default function UserProfilePage() {
                             {saving ? (
                                 <>
                                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-
-                                    <span>
-                                        در حال ذخیره...
-                                    </span>
+                                    <span>در حال ذخیره...</span>
                                 </>
                             ) : (
                                 <>
                                     <HiOutlineCheckCircle className="w-5 h-5" />
-
-                                    <span>
-                                        ذخیره تغییرات
-                                    </span>
+                                    <span>ذخیره تغییرات</span>
                                 </>
                             )}
                         </button>
-
                     </div>
-
                 </form>
-
             </div>
         </div>
     )

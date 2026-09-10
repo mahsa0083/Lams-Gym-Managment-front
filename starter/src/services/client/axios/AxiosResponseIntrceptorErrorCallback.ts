@@ -1,8 +1,14 @@
-// AxiosResponseIntrceptorErrorCallback.ts
 import { AxiosError, AxiosRequestConfig } from 'axios';
-import { getSession, signOut } from 'next-auth/react';
+import { getSession, signOut } from 'next-auth/react'; // بر اساس کتابخانه auth پروژه‌تان
 import appConfig from '@/configs/app.config';
-import AxiosBase from './AxiosBase';
+import AxiosBase from './AxiosBase'; // یا نمونه اصلی axios شما
+
+// متغیر نگهدارنده هندلر سراسری ارور دیالوگ
+let globalShowError: ((err: any) => void) | null = null;
+
+export const setGlobalErrorHandler = (handler: (err: any) => void) => {
+    globalShowError = handler;
+};
 
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -10,7 +16,7 @@ let failedQueue: Array<{
     reject: (reason?: unknown) => void;
 }> = [];
 
-const processQueue = (error: any = null) => {
+const processQueue = (error: any) => {
     failedQueue.forEach((prom) => {
         if (error) {
             prom.reject(error);
@@ -21,10 +27,10 @@ const processQueue = (error: any = null) => {
     failedQueue = [];
 };
 
-const AxiosResponseInterceptorErrorCallback = async (error: AxiosError) => {
+export const AxiosResponseInterceptorErrorCallback = async (error: AxiosError) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-    // اگر خطای 401 بود و قبلا برای این ریکوئست تلاشی نشده بود
+    // ۱. مدیریت خطای 401 (Unauthorized) و فرآیند Silent Refresh Token
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
         if (isRefreshing) {
             return new Promise((resolve, reject) => {
@@ -66,6 +72,11 @@ const AxiosResponseInterceptorErrorCallback = async (error: AxiosError) => {
         } finally {
             isRefreshing = false;
         }
+    }
+
+    // ۲. ارسال تمام خطاهای دیگر (400, 403, 404, 500 و...) به دیالوگ مرکزی
+    if (globalShowError && error.response?.status !== 401) {
+        globalShowError(error);
     }
 
     return Promise.reject(error);

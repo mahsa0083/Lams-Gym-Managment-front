@@ -9,6 +9,7 @@ import { getLocale } from '@/server/actions/locale'
 import type { ReactNode } from 'react'
 import '@/assets/styles/app.css'
 import '@/assets/styles/global.scss'
+import { ErrorProvider } from '@/context/ErrorContext';
 
 export const metadata = {
     ...pageMetaConfig,
@@ -39,7 +40,8 @@ export default async function RootLayout({
                 <body suppressHydrationWarning>
                     <ThemeProvider locale={locale} theme={theme}>
                         <NavigationProvider navigationTree={navigationTree}>
-                            {children}
+                            <ErrorProvider>{children}</ErrorProvider>
+                            
                         </NavigationProvider>
                     </ThemeProvider>
                 </body>

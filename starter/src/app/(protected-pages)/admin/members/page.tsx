@@ -175,7 +175,7 @@ interface MemberFormData {
 /*                                  Constants                                 */
 /* -------------------------------------------------------------------------- */
 
-const MEMBERS_ENDPOINT = "api/members";
+const MEMBERS_ENDPOINT = "/members";
 const GENDER_OPTIONS: SelectOption[] = [
   { value: "Male", label: "مرد" },
   { value: "Female", label: "زن" },

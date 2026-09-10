@@ -1,48 +1,32 @@
-
 'use client'
 
-import React, { useEffect, useState } from 'react'
-
+import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-
-import Image from 'next/image'
+import { getJwtUser } from '@/utils/auth'
 
 import { useCourseStore } from '@/store/useCourseStore'
 import ApiService from '@/services/client/ApiService'
 
 import {
   HiOutlineUser,
-  HiOutlinePhone,
-  HiOutlineIdentification,
-  HiOutlineCalendar,
-  HiOutlineClock,
-  HiOutlineAcademicCap,
-  HiOutlineCheckCircle,
-  HiOutlineCreditCard,
   HiOutlineArrowRight,
-  HiOutlineGlobeAlt,
-  HiOutlineSwitchHorizontal,
-  HiOutlineExclamationCircle,
-  HiOutlineX,
-  HiOutlineStatusOnline,
 } from 'react-icons/hi'
+import {  HiOutlineClock } from 'react-icons/hi';
 
-/* =========================================================
-   Types & DTOs
-========================================================= */
-
-interface CourseDto {
+interface ReadonlyShamsiDateTimeProps {
+  label?: string;
+  className?: string;
+}
+interface PackagePurchaseDto {
   id: number
-  trainerId: number
-  trainerName: string
   title: string
+  price: number
   durationDays: number
   totalSessions: number
-  price: number
-  isActive: boolean
-
-  // در صورت وجود در store فعلی
+  trainerId: number
+  trainerName?: string
+  isActive?: boolean
   image?: string
   description?: string
 }
@@ -86,60 +70,11 @@ interface CardToCardRequestDto {
   transferDateTime: string
 }
 
-const NAME_IDENTIFIER_CLAIM =
-  'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'
-
-/* =========================================================
-   JWT
-========================================================= */
-
-function parseJwtPayload(
-  token: string
-): Record<string, unknown> | null {
-  try {
-    if (!token || typeof token !== 'string') return null
-
-    const parts = token.split('.')
-
-    if (parts.length !== 3) return null
-
-    const payloadPart = parts[1]
-
-    if (!payloadPart) return null
-
-    const base64 = payloadPart
-      .replace(/-/g, '+')
-      .replace(/_/g, '/')
-
-    const paddedBase64 =
-      base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-
-    const binaryString = atob(paddedBase64)
-
-    const bytes = Uint8Array.from(
-      binaryString,
-      (char) => char.charCodeAt(0)
-    )
-
-    const decoded = new TextDecoder().decode(bytes)
-
-    return JSON.parse(decoded) as Record<string, unknown>
-  } catch (error) {
-    console.error('Failed to parse JWT payload:', error)
-    return null
-  }
-}
-
-/* =========================================================
-   Date Helpers
-========================================================= */
-
 const formatToShamsi = (dateString?: string): string => {
   if (!dateString) return 'نامشخص'
 
   try {
     const cleanDate = dateString.split('T')[0]
-
     const dateObj = new Date(cleanDate)
 
     if (isNaN(dateObj.getTime())) {
@@ -157,10 +92,6 @@ const formatToShamsi = (dateString?: string): string => {
   }
 }
 
-/* =========================================================
-   Day Of Week
-========================================================= */
-
 const dayOfWeekFa: Record<string, string> = {
   Saturday: 'شنبه',
   Sunday: 'یکشنبه',
@@ -171,9 +102,21 @@ const dayOfWeekFa: Record<string, string> = {
   Friday: 'جمعه',
 }
 
-/* =========================================================
-   Component
-========================================================= */
+const genderFa = (gender?: string): string => {
+  if (!gender) return 'نامشخص'
+  if (gender.toLowerCase() === 'male') return 'مرد'
+  if (gender.toLowerCase() === 'female') return 'زن'
+  return gender
+}
+
+// نمایش خلاصه سانس‌های هفتگی یک کلاس، مثلاً: «شنبه ۰۸:۰۰-۰۹:۰۰ | دوشنبه ۰۸:۰۰-۰۹:۰۰»
+const formatSchedules = (schedules?: ScheduleDto[]): string => {
+  if (!schedules || schedules.length === 0) return 'زمان‌بندی ثبت نشده'
+
+  return schedules
+    .map((s) => `${dayOfWeekFa[s.dayOfWeek] || s.dayOfWeek} ${s.startTime}-${s.endTime}`)
+    .join(' | ')
+}
 
 export default function CourseReservationPage() {
   const router = useRouter()
@@ -182,15 +125,21 @@ export default function CourseReservationPage() {
 
   const { selectedCourse } = useCourseStore()
 
-  /* =========================================================
-     Steps
-  ========================================================= */
+  // --------------------------------------------------
+  // Stable primitive values
+  // --------------------------------------------------
+
+  const accessToken =
+    (session as any)?.accessToken as string | undefined
+
+  const selectedCourseId =
+    (selectedCourse as any)?.id as number | undefined
+
+  // --------------------------------------------------
+  // State
+  // --------------------------------------------------
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
-
-  /* =========================================================
-     Athlete
-  ========================================================= */
 
   const [userInfo, setUserInfo] = useState({
     fullName: '',
@@ -198,26 +147,26 @@ export default function CourseReservationPage() {
     nationalCode: '',
     gender: '',
     birthDate: '',
+    joinDate: '',
   })
 
-  /* =========================================================
-     Gym Classes
-  ========================================================= */
+  const [packageData, setPackageData] =
+    useState<PackagePurchaseDto | null>(null)
 
-  const [gymClasses, setGymClasses] = useState<GymClassDto[]>([])
+  const [loadingPackage, setLoadingPackage] =
+    useState<boolean>(true)
 
-  const [selectedClassId, setSelectedClassId] = useState<number>(0)
+  const [gymClasses, setGymClasses] =
+    useState<GymClassDto[]>([])
+
+  const [selectedClassId, setSelectedClassId] =
+    useState<number>(0)
 
   const [loadingClasses, setLoadingClasses] =
     useState<boolean>(false)
 
-  /* =========================================================
-     Payment
-  ========================================================= */
-
-  const [paymentMethod, setPaymentMethod] = useState<
-    'online' | 'cardToCard'
-  >('online')
+  const [paymentMethod, setPaymentMethod] =
+    useState<'online' | 'cardToCard'>('online')
 
   const [serverDateTime, setServerDateTime] =
     useState<string>('در حال دریافت...')
@@ -225,10 +174,6 @@ export default function CourseReservationPage() {
   const [cardToCardData, setCardToCardData] = useState({
     cardLastFourDigits: '',
   })
-
-  /* =========================================================
-     Modal
-  ========================================================= */
 
   const [modalConfig, setModalConfig] = useState<{
     isOpen: boolean
@@ -241,6 +186,18 @@ export default function CourseReservationPage() {
     message: '',
     type: 'error',
   })
+
+  // --------------------------------------------------
+  // Loop guard
+  // --------------------------------------------------
+  // کلید فچ فعلی رو نگه می‌داریم؛ اگر همون ترکیب token+course دوباره
+  // به افکت برسه (مثلاً به‌خاطر رفرش سشن یا رندر اضافه‌ی استور)،
+  // دوباره فچ نمی‌کنیم و از حلقه‌ی درخواست جلوگیری می‌کنیم.
+  const fetchedKeyRef = useRef<string | null>(null)
+
+  // --------------------------------------------------
+  // Helpers
+  // --------------------------------------------------
 
   const showAlertModal = (
     title: string,
@@ -262,115 +219,320 @@ export default function CourseReservationPage() {
     }))
   }
 
-  /* =========================================================
-     Fetch Athlete
-  ========================================================= */
+  const getData = <T,>(response: any): T => {
+    return (
+      response?.data?.data ??
+      response?.data ??
+      response
+    ) as T
+  }
+
+  // ==================================================
+  // 1. LOAD USER + PACKAGE
+  // ==================================================
 
   useEffect(() => {
-    if (status === 'loading') return
+    if (status === 'loading') {
+      return
+    }
 
-    if (status !== 'authenticated') return
+    if (status !== 'authenticated') {
+      setLoadingPackage(false)
+      return
+    }
 
-    const accessToken = (session as any)?.accessToken
+    if (!accessToken) {
+      setLoadingPackage(false)
+      return
+    }
 
-    if (!accessToken) return
+    if (!selectedCourseId) {
+      setPackageData(null)
+      setLoadingPackage(false)
+      return
+    }
 
-    const fetchUserProfile = async () => {
+    // گارد ضد-حلقه: اگر دقیقاً همین ترکیب قبلاً فچ شده، دوباره فچ نکن
+    const fetchKey = `${accessToken}:${selectedCourseId}`
+    if (fetchedKeyRef.current === fetchKey) {
+      return
+    }
+    fetchedKeyRef.current = fetchKey
+
+    let cancelled = false
+
+    const fetchPageData = async () => {
+      setLoadingPackage(true)
+
       try {
-        const payload = parseJwtPayload(accessToken)
+        // ==================================================
+        // USER PROFILE
+        // ==================================================
 
-        if (!payload) return
+        try {
+          const jwtUser = getJwtUser(accessToken)
+          const userId = jwtUser?.id
 
-        const userIdValue =
-          payload[NAME_IDENTIFIER_CLAIM]
+          if (userId) {
+            const profileRes =
+              await ApiService.get<UserProfileDto>(
+                `/members/${userId}`
+              )
 
-        if (
-          userIdValue === undefined ||
-          userIdValue === null
-        ) {
-          return
+            if (cancelled) return
+
+            const profile =
+              getData<UserProfileDto>(profileRes)
+
+            if (profile) {
+              setUserInfo({
+                fullName:
+                  `${profile.firstName || ''} ${profile.lastName || ''
+                    }`.trim(),
+
+                phone:
+                  profile.phoneNumber || '',
+
+                nationalCode:
+                  profile.nationalCode || '',
+
+                gender:
+                  profile.gender || '',
+
+                birthDate:
+                  profile.birthDate || '',
+
+                joinDate:
+                  profile.joinDate || '',
+              })
+            }
+          }
+        } catch (error) {
+          console.error(
+            'Error fetching profile:',
+            error
+          )
         }
 
-        const userId = Number(userIdValue)
+        if (cancelled) return
 
-        if (!Number.isInteger(userId) || userId <= 0) {
-          return
-        }
+        // ==================================================
+        // PACKAGE
+        // ==================================================
+        // توجه: /api/packages/purchase/{id} روی بک‌اند فعلی 400 برمی‌گردونه،
+        // پس به‌جاش از GET /api/packages/{id} استفاده می‌کنیم که PackageDetailsDto
+        // (شامل price, title, durationDays, totalSessions, trainerName, isActive) می‌ده.
 
-        const response =
-          await ApiService.get<UserProfileDto>(
-            `/api/members/${userId}`
+        try {
+          const packageRes =
+            await ApiService.get<PackagePurchaseDto>(
+              `/packages/${selectedCourseId}`
+            )
+
+          if (cancelled) return
+
+          const pkg =
+            getData<PackagePurchaseDto>(packageRes)
+
+          if (pkg) {
+            setPackageData({
+              ...pkg,
+
+              trainerName:
+                pkg.trainerName ||
+                (selectedCourse as any)?.instructor ||
+                'نامشخص',
+
+              image:
+                (selectedCourse as any)?.image ||
+                '/images/default.jpg',
+
+              description:
+                (selectedCourse as any)?.description ||
+                '',
+
+              isActive:
+                pkg.isActive ?? true,
+            })
+
+            return
+          }
+
+          throw new Error(
+            'Package API returned empty data'
+          )
+        } catch (error: any) {
+          // این لاگ رو حتماً چک کنید: اگه status روی خطا 404 باشه یعنی
+          // selectedCourseId (که از selectedCourse.id میاد) آیدی معتبر
+          // پکیج در بک‌اند نیست. اگه 401/403 باشه مشکل از توکن است.
+          console.error(
+            '[reservation] خطا در دریافت اطلاعات پکیج از /packages/' +
+            selectedCourseId,
+            {
+              status: error?.response?.status,
+              data: error?.response?.data,
+              message: error?.message,
+            }
           )
 
-        if (response) {
-          setUserInfo({
-            fullName:
-              `${response.firstName || ''} ${
-                response.lastName || ''
-              }`.trim(),
+          // فقط اگر API پکیج شکست خورد، از داده‌ی استور fallback می‌سازیم.
+          // این fallback ناقصه (قیمت واقعی و توضیحات دقیق رو نداره) و فقط
+          // برای اینکه صفحه کاملاً سفید نمونه نگه داشته شده — تا وقتی
+          // ریشه‌ی خطای بالا رفع نشه، قیمت و اطلاعات اینجا قابل‌اعتماد نیستن.
+          if (
+            selectedCourse &&
+            !cancelled
+          ) {
+            const fallbackPrice =
+              typeof (selectedCourse as any)?.price ===
+                'number'
+                ? (selectedCourse as any).price
+                : 0
 
-            phone: response.phoneNumber || '',
+            if (fallbackPrice === 0) {
+              console.warn(
+                '[reservation] fallback فعال شد و قیمت معتبری در selectedCourse پیدا نشد؛ فیلد "price" در استور را بررسی کنید.',
+                selectedCourse
+              )
+            }
 
-            nationalCode:
-              response.nationalCode || '',
+            setPackageData({
+              id: selectedCourseId,
 
-            gender: response.gender || '',
+              title:
+                (selectedCourse as any)?.title ||
+                'دوره ورزشی',
 
-            birthDate:
-              response.birthDate || '',
-          })
+              price: fallbackPrice,
+
+              durationDays: 30,
+
+              totalSessions: 12,
+
+              trainerId: 1,
+
+              trainerName:
+                (selectedCourse as any)?.instructor ||
+                'نامشخص',
+
+              image:
+                (selectedCourse as any)?.image ||
+                '/images/default.jpg',
+
+              description:
+                (selectedCourse as any)?.description ||
+                '',
+
+              isActive: true,
+            })
+          }
         }
       } catch (error) {
-        console.error(
-          'Error fetching user profile:',
-          error
-        )
+        if (!cancelled) {
+          console.error(
+            'Error loading reservation page data:',
+            error
+          )
+
+          setPackageData(null)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingPackage(false)
+        }
       }
     }
 
-    fetchUserProfile()
+    fetchPageData()
+
+    return () => {
+      cancelled = true
+    }
   }, [
     status,
-    (session as any)?.accessToken,
+    accessToken,
+    selectedCourseId,
   ])
 
-  /* =========================================================
-     Fetch Gym Classes
-  ========================================================= */
+  // ==================================================
+  // 2. LOAD GYM CLASSES (مخصوص همین پکیج)
+  // ==================================================
+  // طبق swagger: GET /api/gym-classes برمی‌گردونه ActiveGymClassDto[]
+  // (همه‌ی کلاس‌های فعال باشگاه، بدون فیلتر پکیج، با فیلد id نه gymClassId)
+  // اما اندپوینت درست برای این صفحه GET /api/gym-classes/{packageId}/classes
+  // هست که PackageGymClassDto[] برمی‌گردونه — دقیقاً با شکل gymClassId/
+  // schedules/trainerFullName که این صفحه انتظارش رو داره.
+
+  const classesFetchedKeyRef = useRef<number | null>(null)
 
   useEffect(() => {
+    if (!packageData?.id) {
+      return
+    }
+
+    if (classesFetchedKeyRef.current === packageData.id) {
+      return
+    }
+
+    let cancelled = false
+
     const fetchGymClasses = async () => {
       try {
         setLoadingClasses(true)
 
         const response =
           await ApiService.get<GymClassDto[]>(
-            '/gym-classes'
+            `/gym-classes/${packageData.id}/classes`
           )
 
-        if (response && response.length > 0) {
-          setGymClasses(response)
+        if (cancelled) return
+
+        classesFetchedKeyRef.current = packageData.id
+
+        const classes =
+          getData<GymClassDto[]>(response)
+
+        if (classes && classes.length > 0) {
+          setGymClasses(classes)
 
           setSelectedClassId(
-            response[0].gymClassId
+            (current) =>
+              current ||
+              classes[0].gymClassId
           )
+        } else {
+          setGymClasses([])
+          setSelectedClassId(0)
         }
       } catch (error) {
-        console.error(
-          'خطا در دریافت سانس‌ها:',
-          error
-        )
+        if (!cancelled) {
+          console.error(
+            'خطا در دریافت سانس‌های این پکیج:',
+            error
+          )
+
+          setGymClasses([])
+          setSelectedClassId(0)
+          // اگر شکست خورد، دوباره اجازه‌ی تلاش بده
+          classesFetchedKeyRef.current = null
+        }
       } finally {
-        setLoadingClasses(false)
+        if (!cancelled) {
+          setLoadingClasses(false)
+        }
       }
     }
 
     fetchGymClasses()
-  }, [])
 
-  /* =========================================================
-     Server Date
-  ========================================================= */
+    return () => {
+      cancelled = true
+    }
+  }, [packageData?.id])
+
+  // ==================================================
+  // 3. SERVER DATE
+  // ==================================================
 
   useEffect(() => {
     const now = new Date()
@@ -384,9 +546,9 @@ export default function CourseReservationPage() {
     setServerDateTime(formattedDate)
   }, [])
 
-  /* =========================================================
-     Selected Class
-  ========================================================= */
+  // ==================================================
+  // SELECTED CLASS
+  // ==================================================
 
   const selectedGymClass =
     gymClasses.find(
@@ -394,50 +556,18 @@ export default function CourseReservationPage() {
         item.gymClassId === selectedClassId
     )
 
-  /* =========================================================
-     Selected Course
-  ========================================================= */
-
-  const course =
-    selectedCourse as CourseDto | null
-
-  /* =========================================================
-     Price
-  ========================================================= */
-
-  const getNumericPrice = (
-    value: unknown
-  ): number => {
-    if (typeof value === 'number') {
-      return value
-    }
-
-    if (typeof value === 'string') {
-      const parsed = parseFloat(value)
-
-      return isNaN(parsed) ? 0 : parsed
-    }
-
-    return 0
-  }
-
-  const rawPrice = getNumericPrice(
-    course?.price
-  )
-
-  /* =========================================================
-     Payment
-  ========================================================= */
+  // ==================================================
+  // PAYMENT
+  // ==================================================
 
   const handleSubmitPayment = async () => {
     try {
-      if (!course) {
+      if (!packageData) {
         showAlertModal(
           'خطا',
           'اطلاعات دوره پیدا نشد.',
           'error'
         )
-
         return
       }
 
@@ -447,7 +577,6 @@ export default function CourseReservationPage() {
           'لطفاً یک سانس را انتخاب کنید.',
           'error'
         )
-
         return
       }
 
@@ -460,22 +589,20 @@ export default function CourseReservationPage() {
           'لطفاً ۴ رقم آخر کارت واریزکننده را وارد کنید.',
           'error'
         )
-
         return
       }
 
-      /* =====================================================
-         Create Subscription
-      ===================================================== */
-
-      const subscriptionId =
+      const subscriptionIdRes =
         await ApiService.post<number>(
           '/subscriptions',
           {
-            packageId: course.id,
+            packageId: packageData.id,
             gymClassId: selectedClassId,
           }
         )
+
+      const subscriptionId =
+        getData<number>(subscriptionIdRes)
 
       if (!subscriptionId) {
         showAlertModal(
@@ -483,13 +610,8 @@ export default function CourseReservationPage() {
           'اشتراک با موفقیت ایجاد نشد.',
           'error'
         )
-
         return
       }
-
-      /* =====================================================
-         Card To Card
-      ===================================================== */
 
       if (paymentMethod === 'cardToCard') {
         const cardToCardRequest: CardToCardRequestDto = {
@@ -503,7 +625,7 @@ export default function CourseReservationPage() {
         }
 
         await ApiService.post(
-          '/api/Payments/card-to-card',
+          '/Payments/card-to-card',
           cardToCardRequest
         )
 
@@ -516,10 +638,6 @@ export default function CourseReservationPage() {
         return
       }
 
-      /* =====================================================
-         Online Payment
-      ===================================================== */
-
       const paymentRes =
         await ApiService.post<PaymentResponseDto>(
           '/Payments/online',
@@ -528,9 +646,14 @@ export default function CourseReservationPage() {
           }
         )
 
-      if (paymentRes?.paymentUrl) {
+      const paymentData =
+        getData<PaymentResponseDto>(
+          paymentRes
+        )
+
+      if (paymentData?.paymentUrl) {
         window.location.href =
-          paymentRes.paymentUrl
+          paymentData.paymentUrl
       } else {
         showAlertModal(
           'خطای درگاه',
@@ -552,11 +675,25 @@ export default function CourseReservationPage() {
     }
   }
 
-  /* =========================================================
-     Selected Course Guard
-  ========================================================= */
+  // ==================================================
+  // LOADING
+  // ==================================================
 
-  if (!course) {
+  if (loadingPackage) {
+    return (
+      <div className="p-12 text-center min-h-screen flex items-center justify-center text-[#1D3557] bg-white">
+        <p className="font-bold text-xl">
+          در حال بارگذاری اطلاعات...
+        </p>
+      </div>
+    )
+  }
+
+  // ==================================================
+  // NO PACKAGE
+  // ==================================================
+
+  if (!packageData) {
     return (
       <div className="p-12 text-center min-h-screen flex flex-col items-center justify-center space-y-4 text-[#1D3557] dir-rtl w-full bg-white">
         <p className="font-bold text-xl">
@@ -575,26 +712,23 @@ export default function CourseReservationPage() {
     )
   }
 
-  /* =========================================================
-     Render
-  ========================================================= */
+  // ==================================================
+  // PAGE
+  // ==================================================
 
   return (
     <div className="p-4 sm:p-8 space-y-6 min-h-screen text-[#1D3557] dir-rtl w-full max-w-7xl mx-auto relative bg-white">
 
-      {/* =====================================================
-          Header
-      ===================================================== */}
+      {/* HEADER */}
 
       <div className="flex items-center justify-between bg-white p-6 rounded-2xl border border-gray-200 shadow-md">
-
         <button
           onClick={() =>
             step > 1
               ? setStep(
-                  (prev) =>
-                    (prev - 1) as 1 | 2 | 3
-                )
+                (prev) =>
+                  (prev - 1) as 1 | 2 | 3
+              )
               : router.back()
           }
           className="flex items-center gap-2 text-sm font-bold text-[#457B9D] hover:text-[#1D3557] transition-colors"
@@ -608,360 +742,203 @@ export default function CourseReservationPage() {
           </span>
         </button>
 
-        <h1 className="text-xl sm:text-2xl font-black text-[#1D3557]">
-          مراحل ثبت رزرو کلاس ورزشی
-        </h1>
+        <div className="text-left">
+          <h1 className="text-xl sm:text-2xl font-black text-[#1D3557]">
+            مراحل ثبت رزرو کلاس ورزشی
+          </h1>
+          <span className="text-xs text-gray-400">
+            {serverDateTime}
+          </span>
+        </div>
       </div>
 
-      {/* =====================================================
-          Stepper
-      ===================================================== */}
+      {/* STEPS */}
 
       <div className="grid grid-cols-3 gap-3 bg-white p-4 rounded-2xl border border-gray-200 text-sm sm:text-base font-bold text-center shadow-sm">
 
         <div
-          className={`p-3 rounded-xl transition-all ${
-            step === 1
+          className={`p-3 rounded-xl transition-all ${step === 1
               ? 'bg-[#1D3557] text-white shadow'
               : 'bg-gray-50 text-[#457B9D]'
-          }`}
+            }`}
         >
           ۱. اطلاعات ورزشکار
         </div>
 
         <div
-          className={`p-3 rounded-xl transition-all ${
-            step === 2
+          className={`p-3 rounded-xl transition-all ${step === 2
               ? 'bg-[#1D3557] text-white shadow'
               : 'bg-gray-50 text-[#457B9D]'
-          }`}
+            }`}
         >
           ۲. اطلاعات دوره و سانس
         </div>
 
         <div
-          className={`p-3 rounded-xl transition-all ${
-            step === 3
+          className={`p-3 rounded-xl transition-all ${step === 3
               ? 'bg-[#1D3557] text-white shadow'
               : 'bg-gray-50 text-[#457B9D]'
-          }`}
+            }`}
         >
           ۳. پرداخت
         </div>
       </div>
 
-      {/* =====================================================
-          STEP 1 - Athlete
-      ===================================================== */}
+      {/* ==================================================
+          STEP 1
+      ================================================== */}
 
       {step === 1 && (
         <div className="bg-white p-6 sm:p-10 rounded-2xl border border-gray-200 shadow-md space-y-8 w-full">
 
           <div className="border-b border-gray-100 pb-4">
-
             <h2 className="text-lg sm:text-xl font-bold text-[#1D3557] flex items-center gap-2">
               <HiOutlineUser className="w-6 h-6 text-[#E63946]" />
 
               اطلاعات شخصی ورزشکار
             </h2>
-
-            <p className="text-sm text-gray-500 mt-1">
-              اطلاعات حساب کاربری شما به صورت خودکار از سیستم دریافت شده است.
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-            {/* Full Name */}
-
             <div className="space-y-2">
-
               <label className="text-sm font-bold text-[#1D3557]">
                 نام و نام خانوادگی
               </label>
 
-              <div className="relative">
-
-                <input
-                  type="text"
-                  value={userInfo.fullName}
-                  readOnly
-                  className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-[#1D3557] focus:outline-none"
-                />
-
-                <HiOutlineUser className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" />
-              </div>
+              <input
+                type="text"
+                value={userInfo.fullName}
+                readOnly
+                className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-[#1D3557] focus:outline-none"
+              />
             </div>
 
-            {/* Phone */}
-
             <div className="space-y-2">
-
               <label className="text-sm font-bold text-[#1D3557]">
                 شماره همراه
               </label>
 
-              <div className="relative">
-
-                <input
-                  type="text"
-                  value={userInfo.phone}
-                  readOnly
-                  className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-[#1D3557] focus:outline-none"
-                />
-
-                <HiOutlinePhone className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" />
-              </div>
+              <input
+                type="text"
+                value={userInfo.phone}
+                readOnly
+                className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-[#1D3557] focus:outline-none"
+              />
             </div>
 
-            {/* National Code */}
-
             <div className="space-y-2">
-
               <label className="text-sm font-bold text-[#1D3557]">
                 کد ملی
               </label>
 
-              <div className="relative">
-
-                <input
-                  type="text"
-                  value={userInfo.nationalCode}
-                  readOnly
-                  className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-[#1D3557] focus:outline-none"
-                />
-
-                <HiOutlineIdentification className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" />
-              </div>
+              <input
+                type="text"
+                value={userInfo.nationalCode}
+                readOnly
+                className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-[#1D3557] focus:outline-none"
+              />
             </div>
 
-            {/* Gender */}
-
             <div className="space-y-2">
-
               <label className="text-sm font-bold text-[#1D3557]">
                 جنسیت
               </label>
 
-              <div className="relative">
-
-                <input
-                  type="text"
-                  value={
-                    userInfo.gender === 'Female'
-                      ? 'زن'
-                      : userInfo.gender === 'Male'
-                        ? 'مرد'
-                        : userInfo.gender
-                  }
-                  readOnly
-                  className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-[#1D3557] focus:outline-none"
-                />
-
-                <HiOutlineUser className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" />
-              </div>
+              <input
+                type="text"
+                value={genderFa(userInfo.gender)}
+                readOnly
+                className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-[#1D3557] focus:outline-none"
+              />
             </div>
 
-            {/* Birth Date */}
-
             <div className="space-y-2">
-
               <label className="text-sm font-bold text-[#1D3557]">
                 تاریخ تولد
               </label>
 
-              <div className="relative">
+              <input
+                type="text"
+                value={formatToShamsi(userInfo.birthDate)}
+                readOnly
+                className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-[#1D3557] focus:outline-none"
+              />
+            </div>
+
+            {userInfo.joinDate && (
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-[#1D3557]">
+                  تاریخ عضویت
+                </label>
 
                 <input
                   type="text"
-                  value={formatToShamsi(
-                    userInfo.birthDate
-                  )}
+                  value={formatToShamsi(userInfo.joinDate)}
                   readOnly
                   className="w-full bg-gray-100 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-[#1D3557] focus:outline-none"
                 />
-
-                <HiOutlineCalendar className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" />
               </div>
-            </div>
+            )}
+
           </div>
 
           <div className="flex justify-end pt-6 border-t border-gray-100">
 
             <button
-              onClick={() => {
-                if (
-                  !userInfo.fullName ||
-                  !userInfo.phone ||
-                  !userInfo.nationalCode
-                ) {
-                  showAlertModal(
-                    'نقص اطلاعات',
-                    'اطلاعات ورزشکار هنوز از سیستم دریافت نشده است.',
-                    'error'
-                  )
-
-                  return
-                }
-
-                setStep(2)
-              }}
+              onClick={() => setStep(2)}
               className="bg-[#E63946] hover:bg-[#E63946]/90 text-white text-sm font-bold px-8 py-3.5 rounded-2xl transition-all shadow-md"
             >
               تایید و مرحله بعد (انتخاب سانس)
             </button>
+
           </div>
         </div>
       )}
 
-      {/* =====================================================
-          STEP 2 - Course & Sessions
-      ===================================================== */}
+      {/* ==================================================
+          STEP 2
+      ================================================== */}
 
       {step === 2 && (
         <div className="space-y-6 w-full">
 
-          {/* Course Information */}
-
           <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-md space-y-6">
 
-            <div className="flex flex-col lg:flex-row gap-6 items-start border-b border-gray-100 pb-6">
+            <h2 className="text-xl sm:text-2xl font-black text-[#1D3557]">
+              {packageData.title}
+            </h2>
 
-              {course.image ? (
-                <div className="relative w-full lg:w-72 h-48 rounded-2xl overflow-hidden shrink-0 shadow-sm border border-gray-100 bg-gray-100">
+            {packageData.description && (
+              <p className="text-sm text-gray-600">
+                {packageData.description}
+              </p>
+            )}
 
-                  <Image
-                    src={course.image}
-                    alt={course.title}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              ) : null}
-
-              <div className="space-y-3 flex-1">
-
-                <h2 className="text-xl sm:text-2xl font-black text-[#1D3557]">
-                  {course.title}
-                </h2>
-
-                {course.description && (
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    {course.description}
-                  </p>
-                )}
-
-                <div className="flex flex-wrap gap-6 text-sm font-semibold text-[#1D3557] pt-2">
-
-                  <span className="flex items-center gap-2 bg-gray-50 px-3.5 py-2 rounded-xl border border-gray-100">
-
-                    <HiOutlineAcademicCap className="w-5 h-5 text-[#457B9D]" />
-
-                    مربی: {course.trainerName || 'نامشخص'}
-                  </span>
-
-                  <span className="flex items-center gap-2 bg-gray-50 px-3.5 py-2 rounded-xl border border-gray-100">
-
-                    <HiOutlineCalendar className="w-5 h-5 text-[#457B9D]" />
-
-                    شروع: {formatToShamsi(
-                      selectedGymClass?.startDate
-                    )}
-                  </span>
-                </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-gray-400 block">مربی</span>
+                <strong>{packageData.trainerName}</strong>
+              </div>
+              <div>
+                <span className="text-gray-400 block">مدت اعتبار</span>
+                <strong>{packageData.durationDays} روز</strong>
+              </div>
+              <div>
+                <span className="text-gray-400 block">تعداد جلسات</span>
+                <strong>{packageData.totalSessions}</strong>
+              </div>
+              <div>
+                <span className="text-gray-400 block">قیمت</span>
+                <strong>{packageData.price.toLocaleString('fa-IR')} تومان</strong>
               </div>
             </div>
 
-            {/* Course Details */}
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 bg-gray-50 p-5 rounded-2xl border border-gray-200 text-xs sm:text-sm">
-
-              <div className="space-y-1">
-
-                <span className="text-gray-500 block">
-                  عنوان دوره:
-                </span>
-
-                <span className="font-bold text-[#1D3557] truncate block">
-                  {course.title}
-                </span>
-              </div>
-
-              <div className="space-y-1">
-
-                <span className="text-gray-500 block">
-                  نام مربی:
-                </span>
-
-                <span className="font-bold text-[#1D3557] truncate block">
-                  {course.trainerName || '-'}
-                </span>
-              </div>
-
-              <div className="space-y-1">
-
-                <span className="text-gray-500 block">
-                  مدت دوره:
-                </span>
-
-                <span className="font-bold text-[#1D3557] block">
-                  {course.durationDays} روز
-                </span>
-              </div>
-
-              <div className="space-y-1">
-
-                <span className="text-gray-500 block">
-                  تعداد جلسات:
-                </span>
-
-                <span className="font-bold text-[#1D3557] block">
-                  {course.totalSessions} جلسه
-                </span>
-              </div>
-
-              <div className="space-y-1">
-
-                <span className="text-gray-500 block">
-                  قیمت دوره:
-                </span>
-
-                <span className="font-bold text-[#E63946] block">
-                  {rawPrice
-                    ? `${rawPrice.toLocaleString('fa-IR')} تومان`
-                    : 'رایگان'}
-                </span>
-              </div>
-            </div>
-
-            {/* Active Status */}
-
-            <div className="flex justify-end">
-
-              <span
-                className={`inline-flex items-center gap-2 font-bold px-3 py-1.5 rounded-xl ${
-                  course.isActive
-                    ? 'bg-emerald-50 text-emerald-600'
-                    : 'bg-rose-50 text-rose-600'
-                }`}
-              >
-                <HiOutlineStatusOnline className="w-4 h-4" />
-
-                {course.isActive
-                  ? 'دوره فعال است'
-                  : 'دوره غیرفعال است'}
-              </span>
-            </div>
           </div>
 
-          {/* Session Selection */}
-
           <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-md space-y-6">
 
-            <h3 className="text-base sm:text-lg font-bold text-[#1D3557] flex items-center gap-2">
-
-              <HiOutlineClock className="w-6 h-6 text-[#E63946]" />
-
+            <h3 className="text-base sm:text-lg font-bold text-[#1D3557]">
               انتخاب سانس و زمان‌بندی کلاس
             </h3>
 
@@ -977,7 +954,6 @@ export default function CourseReservationPage() {
               <div className="grid grid-cols-1 gap-4">
 
                 {gymClasses.map((gc) => (
-
                   <label
                     key={gc.gymClassId}
                     onClick={() =>
@@ -985,150 +961,36 @@ export default function CourseReservationPage() {
                         gc.gymClassId
                       )
                     }
-                    className={`flex flex-col gap-5 p-5 rounded-2xl border cursor-pointer transition-all ${
-                      selectedClassId === gc.gymClassId
+                    className={`flex flex-col gap-2 p-5 rounded-2xl border cursor-pointer transition-all ${selectedClassId ===
+                        gc.gymClassId
                         ? 'border-[#1D3557] bg-[#1D3557]/5 shadow-md'
                         : 'border-gray-200 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
 
-                    {/* Main Session Info */}
+                    <p className="text-sm font-bold text-[#1D3557]">
+                      {gc.title}
+                    </p>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <span className="text-xs text-gray-500">
+                      مربی: {gc.trainerFullName || 'نامشخص'}
+                    </span>
 
-                      <div className="flex items-center gap-4">
+                    <span className="text-xs text-gray-500">
+                      زمان‌بندی: {formatSchedules(gc.schedules)}
+                    </span>
 
-                        <input
-                          type="radio"
-                          name="session"
-                          checked={
-                            selectedClassId ===
-                            gc.gymClassId
-                          }
-                          onChange={() =>
-                            setSelectedClassId(
-                              gc.gymClassId
-                            )
-                          }
-                          className="accent-[#1D3557] w-4 h-4"
-                        />
+                    <span className="text-xs text-gray-500">
+                      تاریخ شروع: {formatToShamsi(gc.startDate)}
+                    </span>
 
-                        <div>
+                    <span className="text-xs text-gray-500">
+                      ظرفیت باقی‌مانده: {gc.remainingSessions} از {gc.capacity}
+                    </span>
 
-                          <p className="text-sm font-bold text-[#1D3557]">
-                            {gc.title ||
-                              'سانس کلاس ورزشی'}
-                          </p>
-
-                          <p className="text-xs text-gray-500 mt-1">
-                            مربی:{' '}
-                            {gc.trainerFullName ||
-                              course.trainerName ||
-                              'نامشخص'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 self-end sm:self-auto">
-
-                        <span className="text-xs sm:text-sm text-[#E63946] font-bold bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-100">
-                          ظرفیت باقی‌مانده:{' '}
-                          {gc.remainingSessions}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Schedule */}
-
-                    {gc.schedules &&
-                      gc.schedules.length > 0 && (
-                        <div className="border-t border-gray-200 pt-4">
-
-                          <p className="text-xs font-bold text-[#1D3557] mb-3">
-                            برنامه هفتگی:
-                          </p>
-
-                          <div className="flex flex-wrap gap-3">
-
-                            {gc.schedules.map(
-                              (
-                                schedule,
-                                index
-                              ) => (
-                                <div
-                                  key={`${gc.gymClassId}-${index}`}
-                                  className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-gray-200 text-xs"
-                                >
-
-                                  <HiOutlineClock className="w-4 h-4 text-[#457B9D]" />
-
-                                  <span className="font-bold text-[#1D3557]">
-                                    {dayOfWeekFa[
-                                      schedule
-                                        .dayOfWeek
-                                    ] ||
-                                      schedule.dayOfWeek}
-                                  </span>
-
-                                  <span className="text-gray-500">
-                                    {schedule.startTime}
-                                  </span>
-
-                                  <span className="text-gray-400">
-                                    تا
-                                  </span>
-
-                                  <span className="text-gray-500">
-                                    {schedule.endTime}
-                                  </span>
-                                </div>
-                              )
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                    {/* Session Details */}
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-
-                      <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-
-                        <span className="text-xs text-gray-500 block">
-                          ظرفیت کل
-                        </span>
-
-                        <span className="font-bold text-[#1D3557] text-sm">
-                          {gc.capacity}
-                        </span>
-                      </div>
-
-                      <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-
-                        <span className="text-xs text-gray-500 block">
-                          جلسات باقی‌مانده
-                        </span>
-
-                        <span className="font-bold text-[#1D3557] text-sm">
-                          {gc.remainingSessions}
-                        </span>
-                      </div>
-
-                      <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-
-                        <span className="text-xs text-gray-500 block">
-                          تاریخ شروع
-                        </span>
-
-                        <span className="font-bold text-[#1D3557] text-sm">
-                          {formatToShamsi(
-                            gc.startDate
-                          )}
-                        </span>
-                      </div>
-                    </div>
                   </label>
                 ))}
+
               </div>
             )}
 
@@ -1136,9 +998,9 @@ export default function CourseReservationPage() {
 
               <button
                 onClick={() => setStep(1)}
-                className="text-sm font-bold text-[#457B9D] hover:text-[#1D3557]"
+                className="text-sm font-bold text-[#457B9D]"
               >
-                اصلاح اطلاعات شخص
+                مرحله قبل
               </button>
 
               <button
@@ -1149,437 +1011,213 @@ export default function CourseReservationPage() {
                       'لطفاً یک سانس را انتخاب کنید.',
                       'error'
                     )
-
-                    return
-                  }
-
-                  if (!course.isActive) {
-                    showAlertModal(
-                      'دوره غیرفعال',
-                      'این دوره در حال حاضر فعال نیست.',
-                      'error'
-                    )
-
                     return
                   }
 
                   setStep(3)
                 }}
-                className="bg-[#E63946] hover:bg-[#E63946]/90 text-white text-sm font-bold px-8 py-3.5 rounded-2xl transition-all shadow-md"
+                className="bg-[#E63946] text-white text-sm font-bold px-8 py-3.5 rounded-2xl"
               >
-                تایید سانس و مرحله بعد (پرداخت)
+                تایید سانس و پرداخت
               </button>
+
             </div>
+
           </div>
         </div>
       )}
 
-      {/* =====================================================
-          STEP 3 - Payment
-      ===================================================== */}
+      {/* ==================================================
+          STEP 3
+      ================================================== */}
 
       {step === 3 && (
         <div className="bg-white p-6 sm:p-10 rounded-2xl border border-gray-200 shadow-md space-y-8 w-full">
 
-          <div className="border-b border-gray-100 pb-4">
+          <h2 className="text-lg font-bold text-[#1D3557]">
+            خلاصه فاکتور و پرداخت
+          </h2>
 
-            <h2 className="text-lg sm:text-xl font-bold text-[#1D3557] flex items-center gap-2">
+          <div className="space-y-4">
 
-              <HiOutlineCreditCard className="w-6 h-6 text-[#E63946]" />
+            <div className="flex justify-between">
+              <span>دوره</span>
+              <strong>
+                {packageData.title}
+              </strong>
+            </div>
 
-              خلاصه فاکتور و انتخاب روش پرداخت
-            </h2>
+            <div className="flex justify-between">
+              <span>قیمت</span>
+              <strong>
+                {packageData.price.toLocaleString(
+                  'fa-IR'
+                )}{' '}
+                تومان
+              </strong>
+            </div>
+
+            {selectedGymClass && (
+              <>
+                <div className="flex justify-between">
+                  <span>سانس</span>
+                  <strong>
+                    {selectedGymClass.title}
+                  </strong>
+                </div>
+
+                <div className="flex justify-between">
+                  <span>زمان‌بندی</span>
+                  <strong>
+                    {formatSchedules(selectedGymClass.schedules)}
+                  </strong>
+                </div>
+              </>
+            )}
+
           </div>
 
-          {/* Invoice */}
+          <div className="pt-6 border-t border-gray-100 space-y-4">
 
-          <div className="space-y-3 text-sm text-[#1D3557] bg-gray-50 p-6 rounded-2xl border border-gray-200">
-
-            <div className="flex justify-between py-2">
-
-              <span className="text-gray-500">
-                عنوان دوره:
-              </span>
-
-              <span className="font-bold">
-                {course.title}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-2">
-
-              <span className="text-gray-500">
-                ورزشکار:
-              </span>
-
-              <span className="font-bold">
-                {userInfo.fullName}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-2">
-
-              <span className="text-gray-500">
-                شماره همراه:
-              </span>
-
-              <span className="font-bold">
-                {userInfo.phone}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-2">
-
-              <span className="text-gray-500">
-                سانس:
-              </span>
-
-              <span className="font-bold">
-                {selectedGymClass?.title || '-'}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-2">
-
-              <span className="text-gray-500">
-                مربی:
-              </span>
-
-              <span className="font-bold">
-                {selectedGymClass?.trainerFullName ||
-                  course.trainerName ||
-                  '-'}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-2">
-
-              <span className="text-gray-500">
-                مبلغ پایه:
-              </span>
-
-              <span className="font-bold">
-                {rawPrice
-                  ? `${rawPrice.toLocaleString(
-                      'fa-IR'
-                    )} تومان`
-                  : 'رایگان'}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-4 border-t border-gray-200 text-base sm:text-lg font-black text-[#1D3557]">
-
-              <span>
-                مبلغ قابل پرداخت:
-              </span>
-
-              <span className="text-[#E63946]">
-                {rawPrice
-                  ? `${rawPrice.toLocaleString(
-                      'fa-IR'
-                    )} تومان`
-                  : 'رایگان'}
-              </span>
-            </div>
-          </div>
-
-          {/* Payment Method */}
-
-          <div className="space-y-6 border-t border-gray-100 pt-6">
-
-            <h3 className="text-sm sm:text-base font-bold text-[#1D3557]">
-              روش پرداخت را انتخاب کنید:
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-              {/* Online */}
+            <div className="flex gap-4">
 
               <button
                 type="button"
                 onClick={() =>
                   setPaymentMethod('online')
                 }
-                className={`p-5 rounded-2xl border text-right transition-all flex items-center justify-between ${
-                  paymentMethod === 'online'
-                    ? 'border-[#1D3557] bg-[#1D3557]/5 shadow-md'
-                    : 'border-gray-200 hover:bg-gray-50'
-                }`}
+                className={`flex-1 py-4 rounded-2xl border font-bold ${paymentMethod === 'online'
+                    ? 'border-[#1D3557] bg-[#1D3557] text-white'
+                    : 'border-gray-200 text-[#1D3557]'
+                  }`}
               >
-
-                <div className="flex items-center gap-4">
-
-                  <HiOutlineGlobeAlt className="w-6 h-6 text-[#1D3557]" />
-
-                  <div>
-
-                    <p className="text-sm font-bold text-[#1D3557]">
-                      پرداخت آنلاین
-                    </p>
-
-                    <p className="text-xs text-gray-500 mt-1">
-                      اتصال مستقیم به درگاه پرداخت
-                    </p>
-                  </div>
-                </div>
-
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  checked={
-                    paymentMethod === 'online'
-                  }
-                  onChange={() =>
-                    setPaymentMethod('online')
-                  }
-                  className="accent-[#1D3557] w-4 h-4"
-                />
+                پرداخت آنلاین
               </button>
-
-              {/* Card To Card */}
 
               <button
                 type="button"
                 onClick={() =>
                   setPaymentMethod('cardToCard')
                 }
-                className={`p-5 rounded-2xl border text-right transition-all flex items-center justify-between ${
-                  paymentMethod ===
-                  'cardToCard'
-                    ? 'border-[#1D3557] bg-[#1D3557]/5 shadow-md'
-                    : 'border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-
-                <div className="flex items-center gap-4">
-
-                  <HiOutlineSwitchHorizontal className="w-6 h-6 text-[#E63946]" />
-
-                  <div>
-
-                    <p className="text-sm font-bold text-[#1D3557]">
-                      پرداخت کارت به کارت
-                    </p>
-
-                    <p className="text-xs text-gray-500 mt-1">
-                      واریز به حساب باشگاه و ثبت اطلاعات واریز
-                    </p>
-                  </div>
-                </div>
-
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  checked={
-                    paymentMethod ===
+                className={`flex-1 py-4 rounded-2xl border font-bold ${paymentMethod ===
                     'cardToCard'
-                  }
-                  onChange={() =>
-                    setPaymentMethod(
-                      'cardToCard'
-                    )
-                  }
-                  className="accent-[#1D3557] w-4 h-4"
-                />
+                    ? 'border-[#1D3557] bg-[#1D3557] text-white'
+                    : 'border-gray-200 text-[#1D3557]'
+                  }`}
+              >
+                کارت به کارت
               </button>
+
             </div>
 
-            {/* =================================================
-                Card To Card
-            ================================================= */}
-
-            {paymentMethod ===
-              'cardToCard' && (
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 space-y-6 mt-6">
-
-                <div className="bg-gradient-to-r from-[#1D3557] to-[#457B9D] text-white p-6 rounded-2xl space-y-3 shadow-md">
-
-                  <div className="flex justify-between items-center text-sm opacity-90">
-
-                    <span>
-                      شماره کارت جهت واریز:
-                    </span>
-
-                    <span>
-                      بانک ملی - باشگاه ورزشی
-                    </span>
-                  </div>
-
-                  <div className="text-center font-mono text-lg sm:text-xl tracking-widest font-bold py-2 flex items-center justify-center gap-2 dir-ltr">
-                    <span>
-                      ۶۰۳۷ - ۹۹۷۵ - ۱۲۳۴ - ۵۶۷۸
-                    </span>
-                  </div>
-
-                  <div className="text-xs opacity-80 text-left dir-rtl">
-                    نام صاحب حساب: مدیر مجموعه ورزشی
-                  </div>
+            {paymentMethod === 'cardToCard' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* فیلد ۴ رقم آخر کارت */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-700">
+                    ۴ رقم آخر کارت واریزکننده
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={cardToCardData.cardLastFourDigits}
+                    onChange={(e) =>
+                      setCardToCardData((prev) => ({
+                        ...prev,
+                        cardLastFourDigits: e.target.value.replace(/\D/g, ''),
+                      }))
+                    }
+                    className="w-full border border-gray-200 rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-[#1D3557] text-sm"
+                    placeholder="مثلاً ۱۲۳۴"
+                  />
                 </div>
 
-                {/* Transfer Date */}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                  <div className="space-y-2">
-
-                    <label className="text-xs font-bold text-[#1D3557] flex items-center gap-1.5">
-
-                      <HiOutlineCalendar className="w-4 h-4 text-[#457B9D]" />
-
-                      تاریخ و زمان ثبت:
-                    </label>
-
+                {/* فیلد تاریخ و زمان جاری (ReadOnly) */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-700">
+                    تاریخ و ساعت تراکنش
+                  </label>
+                  <div className="relative">
                     <input
                       type="text"
                       readOnly
-                      value={serverDateTime}
-                      className="w-full bg-gray-200 border border-gray-300 rounded-2xl px-4 py-3 text-xs text-[#1D3557] font-semibold cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Last Four Digits */}
-
-                  <div className="space-y-2">
-
-                    <label className="text-xs font-bold text-[#1D3557] flex items-center gap-1.5">
-
-                      <HiOutlineCreditCard className="w-4 h-4 text-[#457B9D]" />
-
-                      ۴ رقم آخر کارت واریزکننده:
-                    </label>
-
-                    <input
-                      type="text"
-                      maxLength={4}
-                      inputMode="numeric"
-                      placeholder="مثلاً ۵۶۷۸"
+                      tabIndex={-1}
                       value={
-                        cardToCardData.cardLastFourDigits
+                        typeof window !== 'undefined'
+                          ? new Intl.DateTimeFormat('fa-IR', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false,
+                          }).format(new Date())
+                          : ''
                       }
-                      onChange={(e) => {
-                        const value =
-                          e.target.value.replace(
-                            /\D/g,
-                            ''
-                          )
-
-                        setCardToCardData({
-                          ...cardToCardData,
-                          cardLastFourDigits:
-                            value,
-                        })
-                      }}
-                      className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-xs text-[#1D3557] focus:outline-none focus:border-[#1D3557] dir-ltr text-right"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 pl-10 text-sm font-medium text-gray-600 select-none cursor-default focus:outline-none"
                     />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1D3557] pointer-events-none">
+                      <HiOutlineClock className="w-5 h-5" />
+                    </div>
                   </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-
-                  <p className="text-xs text-blue-700 leading-relaxed">
-                    پس از واریز وجه، ۴ رقم آخر کارت
-                    واریزکننده را وارد کنید. اطلاعات
-                    پرداخت برای بررسی مدیریت ثبت خواهد شد.
-                  </p>
                 </div>
               </div>
             )}
-          </div>
 
-          {/* =================================================
-              Buttons
-          ================================================= */}
+
+          </div>
 
           <div className="flex justify-between items-center pt-6 border-t border-gray-100">
 
             <button
               onClick={() => setStep(2)}
-              className="text-sm font-bold text-[#457B9D] hover:text-[#1D3557]"
+              className="text-sm font-bold text-[#457B9D]"
             >
-              تغییر سانس انتخاب‌شده
+              مرحله قبل
             </button>
 
             <button
               onClick={handleSubmitPayment}
-              className="bg-[#E63946] hover:bg-[#E63946]/90 text-white text-sm font-bold px-10 py-3.5 rounded-2xl transition-all shadow-md flex items-center gap-2"
+              className="bg-[#E63946] text-white text-sm font-bold px-10 py-3.5 rounded-2xl"
             >
-
-              <HiOutlineCheckCircle className="w-5 h-5" />
-
-              <span>
-                {paymentMethod === 'online'
-                  ? 'انتقال به درگاه و پرداخت'
-                  : 'ثبت مشخصات واریز'}
-              </span>
+              پرداخت نهایی
             </button>
+
           </div>
         </div>
       )}
 
-      {/* =====================================================
-          Modal
-      ===================================================== */}
+      {/* ==================================================
+          MODAL
+      ================================================== */}
 
       {modalConfig.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in dir-rtl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
 
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 sm:p-8 shadow-2xl border border-gray-200 space-y-6 text-center transform transition-all relative">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-6 text-center">
+
+            <h3 className="text-lg font-bold text-[#1D3557]">
+              {modalConfig.title}
+            </h3>
+
+            <p className="text-sm text-gray-600">
+              {modalConfig.message}
+            </p>
 
             <button
               onClick={closeModal}
-              className="absolute top-5 left-5 text-gray-400 hover:text-gray-600 transition-colors"
+              className="w-full bg-[#1D3557] text-white py-3.5 rounded-2xl"
             >
-              <HiOutlineX className="w-6 h-6" />
+              متوجه شدم
             </button>
 
-            <div className="flex justify-center">
-
-              {modalConfig.type ===
-                'error' && (
-                <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center text-[#E63946]">
-                  <HiOutlineExclamationCircle className="w-9 h-9" />
-                </div>
-              )}
-
-              {modalConfig.type ===
-                'success' && (
-                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
-                  <HiOutlineCheckCircle className="w-9 h-9" />
-                </div>
-              )}
-
-              {modalConfig.type ===
-                'info' && (
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-[#1D3557]">
-                  <HiOutlineGlobeAlt className="w-9 h-9" />
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-
-              <h3 className="text-lg font-bold text-[#1D3557]">
-                {modalConfig.title}
-              </h3>
-
-              <p className="text-sm text-gray-600 leading-relaxed">
-                {modalConfig.message}
-              </p>
-            </div>
-
-            <div>
-
-              <button
-                onClick={closeModal}
-                className="w-full bg-[#1D3557] hover:bg-[#1D3557]/90 text-white text-sm font-bold py-3.5 rounded-2xl transition-all shadow-md"
-              >
-                متوجه شدم
-              </button>
-            </div>
           </div>
+
         </div>
       )}
+
     </div>
   )
 }
-

@@ -1,0 +1,75 @@
+Swagger API Documentation - Payments
+Base URL: https://api.lamisens.ir
+
+for:ایجاد پرداخت آنلاین------->post
+endponit:/api/Payments/online
+request:
+{
+  "subscriptionId": 0
+}
+response:
+{
+  "paymentId": 0,
+  "authority": "string",
+  "paymentUrl": "string"
+}
+
+
+for:تأیید پرداخت آنلاین------->get
+endponit:/api/Payments/callback
+request:
+Authority: string
+Status: string
+response:
+
+
+for:دریافت اطلاعات پرداخت------->get
+endponit:/api/Payments/{id}
+request:
+id: 0
+response:
+
+
+for:دریافت پرداخت‌های اشتراک------->get
+endponit:/api/Payments/subscription/{subscriptionId}
+request:
+subscriptionId: 0
+response:
+
+
+for:ثبت درخواست پرداخت کارت‌به‌کارت------->post
+endponit:/api/Payments/card-to-card
+request:
+{
+  "subscriptionId": 0,
+  "cardLastFourDigits": "string",
+  "transferDateTime": "2026-01-01T00:00:00Z"
+}
+response:
+0
+
+
+for:دریافت درخواست‌های کارت‌به‌کارت در انتظار تأیید------->get
+endponit:/api/Payments/admin/card-to-card/pending
+request:
+response:
+[
+  {
+    "paymentId": 0,
+    "subscriptionId": 0,
+    "amount": 0,
+    "status": "Pending",
+    "cardLastFourDigits": "string",
+    "transferDateTime": "2026-01-01T00:00:00Z",
+    "firstName": "string",
+    "lastName": "string",
+    "nationalCode": "string"
+  }
+]
+
+
+for:تأیید پرداخت کارت‌به‌کارت------->put
+endponit:/api/Payments/admin/card-to-card/{paymentId}/approve
+request:
+paymentId: 0
+response:

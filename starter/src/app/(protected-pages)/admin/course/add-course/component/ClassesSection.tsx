@@ -302,51 +302,71 @@ const handleAddSchedule = () => {
     }
 
    const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!title || !selectedSport || !selectedTrainer) return
+    e.preventDefault();
 
-    if (editingClass) {
-        const payload = {
-            sportId: Number(selectedSport.value),
-            trainerId: Number(selectedTrainer.value),
-            packageId: selectedPackage ? Number(selectedPackage.value) : 0,
-            title,
-            groupName,
-            capacity: Number(capacity) || 0,
-        }
-        try {
-            await ApiService.put(`/gym-classes/${editingClass.id}`, payload)
-            resetForm()
-            fetchData()
-        } catch (err) {
-            console.error('خطا در بروزرسانی کلاس:', err)
-        }
-    } else {
-        const payload = {
-            dto: {
-                sportId: Number(selectedSport.value),
-                trainerId: Number(selectedTrainer.value),
-                packageId: selectedPackage ? Number(selectedPackage.value) : 0,
-                title,
-                groupName,
-                capacity: Number(capacity) || 0,
-                startDate: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
-                schedules: schedules.map((s) => ({
-                    dayOfWeek: s.dayOfWeek,
-                    startTime: s.startTime.length === 5 ? `${s.startTime}:00` : s.startTime,
-                    endTime: s.endTime.length === 5 ? `${s.endTime}:00` : s.endTime,
-                })),
-            }
-        }
-        try {
-            await ApiService.post('/gym-classes', payload)
-            resetForm()
-            fetchData()
-        } catch (err) {
-            console.error('خطا در ثبت کلاس:', err)
-        }
+    // ۱. اعتبارسنجی اولیه الزامی بودن فیلدها در فرانت
+    if (!title.trim() || !selectedSport || !selectedTrainer) {
+      alert('لطفاً فیلدهای الزامی (عنوان، رشته ورزشی و مربی) را پر کنید.');
+      return;
     }
-}
+
+    if (!editingClass && schedules.length === 0) {
+      alert('حداقل یک برنامه زمانی (سانس) برای کلاس الزامی است.');
+      return;
+    }
+
+    if (!capacity || Number(capacity) <= 0) {
+      alert('ظرفیت کلاس باید بیشتر از صفر باشد.');
+      return;
+    }
+
+    try {
+      if (editingClass) {
+        // ویرایش کلاس
+        const payload = {
+          sportId: Number(selectedSport.value),
+          trainerId: Number(selectedTrainer.value),
+          packageId: selectedPackage && selectedPackage.value ? Number(selectedPackage.value) : null,
+          title: title.trim(),
+          groupName: groupName.trim(),
+          capacity: Number(capacity),
+        };
+        await ApiService.put(`/gym-classes/${editingClass.id}`, payload);
+      } else {
+        // فرمت کردن زمان‌بندی‌ها
+        const formattedSchedules = schedules.map((item) => ({
+          dayOfWeek: item.dayOfWeek,
+          startTime: item.startTime.length === 5 ? `${item.startTime}:00` : item.startTime,
+          endTime: item.endTime.length === 5 ? `${item.endTime}:00` : item.endTime,
+        }));
+
+        // ✅ درست: ارسال مستقیم فیلدها در بادی بدون رپر dto
+        const payload = {
+          sportId: Number(selectedSport.value),
+          trainerId: Number(selectedTrainer.value),
+          // اگر پکیج انتخاب نشده باشد، مقدار null ارسال شود تا خطای FK نخورد
+          packageId: selectedPackage && selectedPackage.value ? Number(selectedPackage.value) : null,
+          title: title.trim(),
+          groupName: groupName.trim(),
+          capacity: Number(capacity),
+          startDate: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
+          schedules: formattedSchedules,
+        };
+
+        await ApiService.post('/gym-classes', payload);
+      }
+
+      resetForm();
+      fetchData();
+    } catch (error: any) {
+      console.error('خطا در ثبت کلاس:', error);
+      if (error?.response?.data?.errors) {
+        const errorMessages = Object.values(error.response.data.errors).flat().join('\n');
+        alert(`خطای اعتبارسنجی سرور:\n${errorMessages}`);
+      }
+    }
+  };
+
 
     const confirmDelete = (id: number) => {
         setDeleteId(id)
@@ -413,7 +433,7 @@ const handleAddSchedule = () => {
                             <label className="block font-semibold mb-1 text-[var(--primary)]">نام گروه / سانس</label>
                             <input
                                 type="text"
-                                placeholder="مثلاً: گروه آقایان"
+                                placeholder="مثلاً: گروه خانم ها"
                                 value={groupName}
                                 onChange={(e) => setGroupName(e.target.value)}
                                 className="w-full h-9 px-3 border border-gray-200 rounded-xl bg-[var(--primary-subtle)]/30 focus:outline-none focus:border-[var(--primary)]"

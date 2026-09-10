@@ -1,0 +1,111 @@
+Swagger API Documentation - Package
+Base URL: https://api.lamisens.ir
+
+for:دریافت لیست پکیج‌های فعال------->get
+endponit:/api/packages
+request:
+response:
+[
+  {
+    "id": 0,
+    "title": "string",
+    "trainerName": "string",
+    "durationDays": 0,
+    "totalSessions": 0,
+    "price": 0
+  }
+]
+
+
+for:ایجاد پکیج جدید------->post
+endponit:/api/packages
+request:
+{
+  "sportId": 0,
+  "trainerId": 0,
+  "title": "string",
+  "description": "string",
+  "durationDays": 0,
+  "totalSessions": 0,
+  "price": 0
+}
+response:
+0
+
+
+for:دریافت جزئیات پکیج------->get
+endponit:/api/packages/{id}
+request:
+id: 0
+response:
+{
+  "id": 0,
+  "trainerId": 0,
+  "trainerName": "string",
+  "title": "string",
+  "durationDays": 0,
+  "totalSessions": 0,
+  "price": 0,
+  "isActive": false
+}
+
+
+for:ویرایش پکیج------->put
+endponit:/api/packages/{id}
+request:
+id: 0
+body:
+{
+  "sportId": 0,
+  "trainerId": 0,
+  "title": "string",
+  "description": "string",
+  "durationDays": 0,
+  "totalSessions": 0,
+  "price": 0
+}
+response:
+
+
+for:غیرفعال‌سازی پکیج------->delete
+endponit:/api/packages/{id}
+request:
+id: 0
+response:
+
+
+for:جستجوی پکیج‌ها------->get
+endponit:/api/packages/search
+request:
+TrainerId: 0
+MinPrice: 0
+MaxPrice: 0
+MinDurationDays: 0
+MaxDurationDays: 0
+response:
+[
+  {
+    "id": 0,
+    "title": "string",
+    "trainerName": "string",
+    "durationDays": 0,
+    "totalSessions": 0,
+    "price": 0
+  }
+]
+
+
+for:دریافت اطلاعات پکیج برای خرید------->get
+endponit:/api/packages/purchase/{id}
+request:
+id: 0
+response:
+{
+  "id": 0,
+  "title": "string",
+  "price": 0,
+  "durationDays": 0,
+  "totalSessions": 0,
+  "trainerId": 0,
+  "sportId": 0
+}

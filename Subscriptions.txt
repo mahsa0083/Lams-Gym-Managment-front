@@ -1,0 +1,71 @@
+Swagger API Documentation - Subscriptions
+Base URL: https://api.lamisens.ir
+
+for:ایجاد اشتراک توسط عضو------->post
+endponit:/api/subscriptions
+request:
+{
+  "packageId": 0,
+  "gymClassId": 0
+}
+response:
+0
+
+
+for:دریافت لیست اشتراک‌ها------->get
+endponit:/api/subscriptions
+request:
+response:
+[
+  {
+    "id": 0,
+    "memberName": "string",
+    "packageName": "string",
+    "trainerName": "string",
+    "startDate": "2026-01-01",
+    "endDate": "2026-01-01",
+    "totalSessions": 0,
+    "remainingSessions": 0,
+    "status": "PendingPayment"
+  }
+]
+
+
+for:دریافت جزئیات اشتراک------->get
+endponit:/api/subscriptions/{id}
+request:
+id: 0
+response:
+{
+  "id": 0,
+  "member": {
+    "id": 0,
+    "fullName": "string",
+    "phoneNumber": "string"
+  },
+  "package": {
+    "id": 0,
+    "title": "string",
+    "durationDays": 0,
+    "trainer": {
+      "fullName": "string"
+    }
+  },
+  "startDate": "2026-01-01",
+  "endDate": "2026-01-01",
+  "totalSessions": 0,
+  "remainingSessions": 0,
+  "status": "PendingPayment",
+  "payments": [
+    {
+      "id": 0,
+      "subscriptionId": 0,
+      "amount": 0,
+      "status": "Pending",
+      "gatewayTransactionId": "string",
+      "cardPan": "string",
+      "paidDate": "2026-01-01",
+      "paidTime": "string"
+    }
+  ]
+}

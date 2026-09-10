@@ -1,0 +1,76 @@
+Swagger API Documentation - Sports
+Base URL: https://api.lamisens.ir
+
+for:دریافت لیست ورزش‌ها------->get
+endponit:/api/sports
+request:
+response:
+[
+  {
+    "id": 0,
+    "name": "string",
+    "description": "string"
+  }
+]
+
+
+for:ایجاد ورزش جدید------->post
+endponit:/api/sports
+request:
+{
+  "name": "string",
+  "description": "string"
+}
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}
+
+
+for:دریافت ورزش بر اساس شناسه------->get
+endponit:/api/sports/{id}
+request:
+id: 0
+response:
+{
+  "id": 0,
+  "name": "string",
+  "description": "string"
+}
+
+
+for:ویرایش ورزش------->put
+endponit:/api/sports/{id}
+request:
+id: 0
+body:
+{
+  "name": "string",
+  "description": "string"
+}
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}
+
+
+for:حذف ورزش------->delete
+endponit:/api/sports/{id}
+request:
+id: 0
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}

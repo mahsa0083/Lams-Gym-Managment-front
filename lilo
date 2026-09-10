@@ -1,0 +1,54 @@
+
+
+
+اطلاعات کاربر
+endponit:/api/members/{id}/details
+request:
+id: 0
+response:
+{
+  "id": 0,
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "nationalCode": "string",
+  "gender": "Female",
+  "birthDate": "2026-01-01",
+  "joinDate": "2026-01-01T00:00:00Z",
+  "medicalNotes": "string",
+  "emergencyPhone": "string",
+  "isActive": false,
+  "subscriptions": [
+    {
+      "subscriptionId": 0,
+      "packageName": "string",
+      "trainerFullName": "string",
+      "startDate": "2026-01-01",
+      "endDate": "2026-01-01",
+      "totalSessions": 0,
+      "remainingSessions": 0,
+      "status": "PendingPayment"
+    }
+  ],
+  "courses": [
+    {
+      "enrollmentId": 0,
+      "classId": 0,
+      "classTitle": "string",
+      "groupName": "string",
+      "sportName": "string",
+      "trainerFullName": "string",
+      "schedules": [
+        {
+          "dayOfWeek": "Sunday",
+          "startTime": "string",
+          "endTime": "string"
+        }
+      ],
+      "attendances": [
+        {
+          "attendanceDate": "2026-01-01",
+          "isPresent": false
+        }
+      ]
+    }

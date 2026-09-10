@@ -1,0 +1,13 @@
+Swagger API Documentation - ProtectedData
+Base URL: https://api.lamisens.ir
+
+for:/api/ProtectedData/Gym-stats------->get
+endponit:/api/ProtectedData/Gym-stats
+request:
+response:
+
+
+for:/api/ProtectedData/Admin-only------->get
+endponit:/api/ProtectedData/Admin-only
+request:
+response:

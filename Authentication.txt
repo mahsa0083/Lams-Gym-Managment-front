@@ -1,0 +1,59 @@
+Swagger API Documentation - Authentication
+Base URL: https://api.lamisens.ir
+
+for:ثبت‌نام عضو جدید------->post
+endponit:/api/auth/register
+request:
+{
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "nationalCode": "string",
+  "birthDate": "2026-01-01"
+}
+response:
+
+
+for:ارسال کد ورود------->post
+endponit:/api/auth/send-otp
+request:
+{
+  "nationalCode": "string"
+}
+response:
+
+
+for:تأیید کد ورود------->post
+endponit:/api/auth/verify-otp
+request:
+{
+  "nationalCode": "string",
+  "code": "string"
+}
+response:
+
+
+for:ورود به حساب کاربری------->post
+endponit:/api/auth/login
+request:
+{
+  "nationalCode": "string",
+  "code": "string"
+}
+response:
+{
+  "accessToken": "string",
+  "refreshToken": "string",
+  "expiresAt": "2026-01-01T00:00:00Z"
+}
+
+
+for:تازه‌سازی توکن دسترسی------->post
+endponit:/api/auth/refresh-token
+request:
+{
+  "accessToken": "string",
+  "refreshToken": "string",
+  "accessTokenExpiresAt": "2026-01-01T00:00:00Z"
+}
+response:

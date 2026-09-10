@@ -1,0 +1,151 @@
+Swagger API Documentation - Trainer
+Base URL: https://api.lamisens.ir
+
+for:ایجاد مربی جدید------->post
+endponit:/api/trainers
+request:
+{
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "nationalCode": "string",
+  "gender": "Female",
+  "specialty": "string",
+  "baseSalary": 0,
+  "commissionPercentage": 0
+}
+response:
+
+
+for:دریافت لیست مربی‌ها------->get
+endponit:/api/trainers
+request:
+response:
+[
+  {
+    "firstName": "string",
+    "lastName": "string",
+    "phoneNumber": "string",
+    "nationalCode": "string",
+    "userActive": false,
+    "trainerActive": false,
+    "specialty": "string",
+    "baseSalary": 0,
+    "commissionPercentage": 0
+  }
+]
+
+
+for:دریافت جزئیات مربی------->get
+endponit:/api/trainers/{id}
+request:
+id: 0
+response:
+{
+  "id": 0,
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "nationalCode": "string",
+  "gender": "Female",
+  "userActive": false,
+  "trainerActive": false,
+  "createdAt": "2026-01-01T00:00:00Z",
+  "specialty": "string",
+  "baseSalary": 0,
+  "commissionPercentage": 0,
+  "totalStudents": 0,
+  "totalActiveClasses": 0,
+  "classes": [
+    {
+      "gymClassId": 0,
+      "title": "string",
+      "sportName": "string",
+      "capacity": 0,
+      "schedules": [
+        {
+          "dayOfWeek": "Sunday",
+          "startTime": "string",
+          "endTime": "string"
+        }
+      ]
+    }
+  ]
+}
+
+
+for:حذف مربی------->delete
+endponit:/api/trainers/{id}
+request:
+id: 0
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}
+
+
+for:ویرایش اطلاعات مربی------->put
+endponit:/api/trainers/{id}
+request:
+id: 0
+body:
+{
+  "firstName": "string",
+  "lastName": "string",
+  "phoneNumber": "string",
+  "nationalCode": "string",
+  "gender": "Female",
+  "specialty": "string",
+  "trainerActive": false,
+  "baseSalary": 0,
+  "commissionPercentage": 0
+}
+response:
+{
+  "type": "string",
+  "title": "string",
+  "status": 0,
+  "detail": "string",
+  "instance": "string"
+}
+
+
+for:دریافت دوره‌های مربی------->get
+endponit:/api/trainers/{id}/courses
+request:
+id: 0
+response:
+[
+  {
+    "id": 0,
+    "groupName": "string",
+    "sportCategory": "string",
+    "remainingCapacity": 0,
+    "capacity": 0,
+    "schedules": [
+      {
+        "dayOfWeek": "Sunday",
+        "startTime": "string",
+        "endTime": "string"
+      }
+    ]
+  }
+]
+
+
+for:دریافت سه جلسه پیش روی مربی------->get
+endponit:/api/trainers/upcoming-classes
+request:
+response:
+[
+  {
+    "gymClassName": "string",
+    "date": "2026-01-01",
+    "startTime": "string",
+    "endTime": "string"
+  }
+]
