@@ -1,8 +1,14 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  ReactNode,
+} from 'react';
 import { HiOutlineExclamationCircle } from 'react-icons/hi';
-// ایمپورت کامپوننت‌های Dialog و Button پروژه‌ات (مسیر بر اساس ساختار پروژه‌ات تنظیم شود)
 import Dialog from '@/components/ui/Dialog';
 import Button from '@/components/ui/Button';
 
@@ -22,6 +28,18 @@ interface ErrorContextType {
 }
 
 const ErrorContext = createContext<ErrorContextType | undefined>(undefined);
+
+// متغیر پل ارتباطی بین Axios Interceptor و React Context
+let globalShowError: ((error: any) => void) | null = null;
+
+// تابعی که در اینترسپتور axios صدا زده می‌شود
+export const triggerGlobalError = (error: any) => {
+  if (globalShowError) {
+    globalShowError(error);
+  } else {
+    console.warn('ErrorProvider هنوز mount نشده است، اما خطایی رخ داد:', error);
+  }
+};
 
 // نگاشت کد وضعیت HTTP به عنوان فارسی مناسب
 const getFriendlyTitle = (status?: number, defaultTitle?: string): string => {
@@ -47,24 +65,35 @@ export const ErrorProvider = ({ children }: { children: ReactNode }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [errorData, setErrorData] = useState<ApiErrorResponse | null>(null);
 
-  const showError = (error: ApiErrorResponse | any) => {
+  const showError = useCallback((error: ApiErrorResponse | any) => {
     // استخراج خطا از پاسخ Axios در صورتی که آبجکت axios error پاس داده شود
     const responseData: ApiErrorResponse = error?.response?.data || error;
 
     setErrorData({
       status: responseData?.status || error?.response?.status || 500,
       title: responseData?.title || 'خطای سرور',
-      detail: responseData?.detail || error?.message || 'مشکلی در برقراری ارتباط رخ داده است.',
+      detail:
+        responseData?.detail ||
+        error?.message ||
+        'مشکلی در برقراری ارتباط رخ داده است.',
       instance: responseData?.instance,
       errors: responseData?.errors,
     });
     setIsOpen(true);
-  };
+  }, []);
 
-  const clearError = () => {
+  const clearError = useCallback(() => {
     setIsOpen(false);
     setErrorData(null);
-  };
+  }, []);
+
+  // متصل کردن نمایش ارور به متغیر سراسری
+  useEffect(() => {
+    globalShowError = showError;
+    return () => {
+      globalShowError = null;
+    };
+  }, [showError]);
 
   const friendlyTitle = getFriendlyTitle(errorData?.status, errorData?.title);
 
@@ -72,7 +101,7 @@ export const ErrorProvider = ({ children }: { children: ReactNode }) => {
     <ErrorContext.Provider value={{ showError, clearError }}>
       {children}
 
-      {/* دیالوگ خطای سراسری بر اساس ساختار dialog.txt */}
+      {/* دیالوگ خطای سراسری */}
       <Dialog
         isOpen={isOpen}
         onClose={clearError}
@@ -100,7 +129,7 @@ export const ErrorProvider = ({ children }: { children: ReactNode }) => {
             {errorData?.detail}
           </div>
 
-          {/* اگر اعتبارسنجی فیلدها (ModelState Errors) وجود داشته باشد */}
+          {/* اعتبارسنجی فیلدها (ModelState Errors) */}
           {errorData?.errors && Object.keys(errorData.errors).length > 0 && (
             <ul className="list-disc list-inside text-xs text-red-500 mb-4 space-y-1 bg-red-50 p-3 rounded-xl border border-red-100">
               {Object.entries(errorData.errors).map(([field, messages]) =>
@@ -127,7 +156,7 @@ export const ErrorProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// هوک اختصاصی برای استفاده در تمام صفحات
+// هوک اختصاصی برای استفاده اختیاری در صفحات
 export const useError = () => {
   const context = useContext(ErrorContext);
   if (!context) {

@@ -63,6 +63,9 @@ const SideNav = ({
 
     const role = getRole()
 
+    // 🎯 تنظیم ارتفاع هدر: اگر سایدبار باز است ۱۶۰px برای لوگوی ۱۰۰px و متن زیرش، وگرنه HEADER_HEIGHT معمولی
+    const headerHeight = sideNavCollapse ? HEADER_HEIGHT : 160
+
     return (
         <div
             data-role={role}
@@ -75,11 +78,12 @@ const SideNav = ({
             )}
         >
             <div
-                className="side-nav-header flex flex-col justify-center"
-                style={{ height: HEADER_HEIGHT }}
+                className="side-nav-header flex flex-col justify-center items-center transition-all duration-300 py-3"
+                style={{ height: headerHeight, minHeight: headerHeight }}
             >
                 {headerContent}
             </div>
+
             <Scroll.FlexSize
                 scrollbars="vertical"
                 className={classNames('side-nav-content')}
@@ -95,7 +99,13 @@ const SideNav = ({
                     userAuthority={session?.user?.authority || []}
                 />
             </Scroll.FlexSize>
-           
+
+            {/* اگر فوتر برای سایدبار پاس داده شده باشد */}
+            {/* {footerContent && (
+                <div className="side-nav-footer mt-auto p-4">
+                    {footerContent}
+                </div>
+            )} */}
         </div>
     )
 }

@@ -21,12 +21,12 @@ const Logo = (props: LogoProps) => {
         logoWidth = 'auto',
     } = props
 
-    const normalizedMode =
-        mode === 'system'
-            ? window.matchMedia('(prefers-color-scheme: dark)').matches
-                ? 'dark'
-                : 'light'
-            : mode
+    // const normalizedMode =
+    //     mode === 'system'
+    //         ? window.matchMedia('(prefers-color-scheme: dark)').matches
+    //             ? 'dark'
+    //             : 'light'
+    //         : mode
 
     return (
         <div
@@ -39,7 +39,8 @@ const Logo = (props: LogoProps) => {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
                 className={imgClass}
-                src={`${LOGO_SRC_PATH}logo-${normalizedMode}-${type}.png`}
+                //src={`${LOGO_SRC_PATH}logo-${normalizedMode}-${type}.png`}
+               src={`${LOGO_SRC_PATH}sidenavLogo.png`}
                 alt={`${APP_NAME} logo`}
             />
         </div>

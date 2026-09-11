@@ -187,7 +187,7 @@ export default function StudentsSettlementsPage() {
           </div>
         ) : filteredSubscriptions.length > 0 ? (
           filteredSubscriptions.map((item) => {
-            const isPending = item.status === 'PendingPayment'
+            const isPending = item.status === 'Pending'
             return (
               <Collapsible
                 key={item.id}

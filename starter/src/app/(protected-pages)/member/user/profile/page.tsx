@@ -73,7 +73,20 @@ export default function UserProfilePage() {
         emergencyPhone: '',
         birthDate: '1375/06/15',
     })
-
+const formatToPersianDate = (dateString?: string): string => {
+    if (!dateString) return '1375/06/15'
+    try {
+        // ایجاد شیء تاریخ با تقویم میلادی و سپس تبدیل به تقویم شمسی
+        const dateObj = new DateObject({
+            date: new Date(dateString),
+            calendar: persian,
+            locale: persian_fa,
+        })
+        return dateObj.format('YYYY/MM/DD')
+    } catch {
+        return '1375/06/15'
+    }
+}
     const [nationalCode, setNationalCode] = useState<string>('')
     const [gender, setGender] = useState<number>(0)
 
@@ -142,7 +155,7 @@ export default function UserProfilePage() {
                     phoneNumber: response.phoneNumber ?? '',
                     medicalNotes: response.medicalNotes ?? '',
                     emergencyPhone: response.emergencyPhone ?? '',
-                    birthDate: formatOnlyDate(response.birthDate),
+                    birthDate: formatToPersianDate(response.birthDate),
                 })
             } catch (error) {
                 if (cancelled) return
@@ -197,59 +210,78 @@ export default function UserProfilePage() {
 
     // تغییر تاریخ تولد
     const handleDateChange = (date: DateObject | null) => {
-        if (date) {
-            setFormData((prev) => ({
-                ...prev,
-                birthDate: date.format('YYYY/MM/DD'),
-            }))
+    if (date) {
+        // اطمینان از تنظیم تقویم شمسی و تبدیل به رشته استاندارد
+        date.convert(persian, persian_fa)
+        setFormData((prev) => ({
+            ...prev,
+            birthDate: date.format('YYYY/MM/DD'),
+        }))
 
-            if (message) {
-                setMessage(null)
-            }
+        if (message) {
+            setMessage(null)
         }
     }
+}
 
     // ذخیره اطلاعات (استفاده از اندپوینت اختصاصی پروفایل)[cite: 1]
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault()
+   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!userData) return
 
-        if (!userData) return
+    try {
+        setSaving(true)
+        setMessage(null)
 
+        // تبدیل تاریخ شمسی داخل فرم به میلادی استاندارد برای ارسال به بک‌اند
+        let gregorianBirthDate = formData.birthDate
         try {
-            setSaving(true)
-            setMessage(null)
-
-            // Endpoint: /api/members/{id}/profile[cite: 1]
-            await ApiService.put(
-                `/members/${userData.id}/profile`,
-                formData
-            )
-
-            setUserData((prev) => {
-                if (!prev) return null
-
-                return {
-                    ...prev,
-                    ...formData,
-                    gender: gender,
-                    nationalCode: nationalCode,
-                }
+            const [pYear, pMonth, pDay] = formData.birthDate.split('/').map(Number)
+            const dateObj = new DateObject({
+                calendar: persian,
+                year: pYear,
+                month: pMonth,
+                day: pDay,
             })
-
-            setMessage({
-                type: 'success',
-                text: 'اطلاعات پروفایل با موفقیت ویرایش شد.',
-            })
-        } catch (error) {
-            console.error('Error updating user profile:', error)
-            setMessage({
-                type: 'error',
-                text: 'خطا در ذخیره‌سازی اطلاعات. لطفاً دوباره تلاش کنید.',
-            })
-        } finally {
-            setSaving(false)
+            // تبدیل به میلادی
+            dateObj.convert(undefined, undefined)
+            gregorianBirthDate = dateObj.toDate().toISOString()
+        } catch (e) {
+            console.warn('Date conversion error, sending as is', e)
         }
+
+        const payload = {
+            ...formData,
+            birthDate: gregorianBirthDate, // یا اگر بک‌اند خودش شمسی می‌گیرد: formData.birthDate
+        }
+
+        await ApiService.put(`/members/${userData.id}/profile`, payload)
+
+        setUserData((prev) => {
+            if (!prev) return null
+            return {
+                ...prev,
+                ...formData,
+                gender: gender,
+                nationalCode: nationalCode,
+            }
+        })
+
+        setMessage({
+            type: 'success',
+            text: 'اطلاعات پروفایل با موفقیت ویرایش شد.',
+        })
+    } catch (error) {
+        console.error('Error updating user profile:', error)
+        setMessage({
+            type: 'error',
+            text: 'خطا در ذخیره‌سازی اطلاعات. لطفاً دوباره تلاش کنید.',
+        })
+    } finally {
+        setSaving(false)
     }
+}
+
 
     const currentGenderOption =
         genderOptions.find((opt) => opt.value === gender) ?? null
@@ -461,19 +493,19 @@ export default function UserProfilePage() {
                         </div>
 
                         {/* تاریخ عضویت */}
-                        {userData?.joinDate && (
-                            <div className="md:col-span-2">
-                                <label className="block text-xs sm:text-sm font-bold text-gray-500 mb-2.5">
-                                    تاریخ عضویت در سیستم
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formatOnlyDate(userData.joinDate)}
-                                    disabled
-                                    className="w-full bg-gray-100/60 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-gray-500 cursor-not-allowed select-none"
-                                />
-                            </div>
-                        )}
+                       {userData?.joinDate && (
+    <div className="md:col-span-2">
+        <label className="block text-xs sm:text-sm font-bold text-gray-500 mb-2.5">
+            تاریخ عضویت در سیستم
+        </label>
+        <input
+            type="text"
+            value={formatToPersianDate(userData.joinDate)}
+            disabled
+            className="w-full bg-gray-100/60 border border-gray-200 rounded-2xl px-4 py-3.5 text-sm text-gray-500 cursor-not-allowed select-none"
+        />
+    </div>
+)}
                     </div>
 
                     {/* دکمه ذخیره */}

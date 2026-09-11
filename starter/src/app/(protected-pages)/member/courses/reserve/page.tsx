@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { Suspense, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { getJwtUser } from '@/utils/auth'
 
@@ -118,8 +118,10 @@ const formatSchedules = (schedules?: ScheduleDto[]): string => {
     .join(' | ')
 }
 
-export default function CourseReservationPage() {
+function CourseReservationPageInner() {
   const router = useRouter()
+
+  const searchParams = useSearchParams()
 
   const { data: session, status } = useSession()
 
@@ -132,8 +134,15 @@ export default function CourseReservationPage() {
   const accessToken =
     (session as any)?.accessToken as string | undefined
 
+  // اولویت با packageId داخل query string است؛ اگر معتبر بود همان استفاده می‌شود
+  // و در غیر این صورت به id دوره‌ی انتخاب‌شده در استور fallback می‌کنیم.
+  const packageIdParam = searchParams.get('packageId')
+  const packageIdParsed = packageIdParam !== null && packageIdParam !== '' ? Number(packageIdParam) : NaN
+
   const selectedCourseId =
-    (selectedCourse as any)?.id as number | undefined
+    !isNaN(packageIdParsed) && packageIdParsed > 0
+      ? (packageIdParsed as number)
+      : ((selectedCourse as any)?.id as number | undefined)
 
   // --------------------------------------------------
   // State
@@ -194,6 +203,12 @@ export default function CourseReservationPage() {
   // به افکت برسه (مثلاً به‌خاطر رفرش سشن یا رندر اضافه‌ی استور)،
   // دوباره فچ نمی‌کنیم و از حلقه‌ی درخواست جلوگیری می‌کنیم.
   const fetchedKeyRef = useRef<string | null>(null)
+
+  // اگر selectedCourseId عوض شد (مثلاً پکیج جدید از query string)،
+  // گارد ضد-حلقه باید ریست شود تا فچ جدید انجام شود.
+  useEffect(() => {
+    fetchedKeyRef.current = null
+  }, [selectedCourseId])
 
   // --------------------------------------------------
   // Helpers
@@ -495,11 +510,21 @@ export default function CourseReservationPage() {
         if (classes && classes.length > 0) {
           setGymClasses(classes)
 
-          setSelectedClassId(
-            (current) =>
-              current ||
-              classes[0].gymClassId
-          )
+          // اگر classId در query string بود و بین سانس‌های این پکیج وجود داشت،
+          // همان سانس به‌صورت پیش‌فرض انتخاب می‌شود؛ وگرنه اولین سانس.
+          const classIdParam = searchParams.get('classId')
+          const classIdParsed =
+            classIdParam !== null && classIdParam !== ''
+              ? Number(classIdParam)
+              : NaN
+
+          const matchedClass =
+            !isNaN(classIdParsed) &&
+            classes.some((c) => c.gymClassId === classIdParsed)
+              ? classIdParsed
+              : classes[0].gymClassId
+
+          setSelectedClassId(matchedClass)
         } else {
           setGymClasses([])
           setSelectedClassId(0)
@@ -528,7 +553,7 @@ export default function CourseReservationPage() {
     return () => {
       cancelled = true
     }
-  }, [packageData?.id])
+  }, [packageData?.id, searchParams])
 
   // ==================================================
   // 3. SERVER DATE
@@ -1219,5 +1244,21 @@ export default function CourseReservationPage() {
       )}
 
     </div>
+  )
+}
+
+export default function CourseReservationPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-12 text-center min-h-screen flex items-center justify-center text-[#1D3557] bg-white">
+          <p className="font-bold text-xl">
+            در حال بارگذاری اطلاعات...
+          </p>
+        </div>
+      }
+    >
+      <CourseReservationPageInner />
+    </Suspense>
   )
 }

@@ -4,7 +4,12 @@ import React, { useState, useEffect } from 'react'
 import ApiService from '@/services/client/ApiService'
 import Select from '@/components/ui/Select'
 import Dialog from '@/components/ui/Dialog'
-import DatePicker from '@/components/ui/DatePicker'
+import DatePicker, { DateObject } from 'react-multi-date-picker'
+import persian from 'react-date-object/calendars/persian'
+import persian_fa from 'react-date-object/locales/persian_fa'
+import gregorian from 'react-date-object/calendars/gregorian'
+import gregorian_en from 'react-date-object/locales/gregorian_en'
+
 import {
     HiOutlinePlus,
     HiOutlineTrash,
@@ -16,7 +21,7 @@ import {
     HiOutlineAcademicCap,
     HiOutlineUser,
     HiOutlineExclamation,
-    HiOutlineCheck
+    HiOutlineCheck,
 } from 'react-icons/hi'
 
 export interface OptionType {
@@ -43,16 +48,52 @@ export interface GymClass {
     schedules: ScheduleItem[]
 }
 
-const getArrayFromResponse = (res: any): any[] => {
-    if (!res) return []
+// توابع تبدیل تاریخ
+export const toJalaliDateObject = (
+    dateValue?: string | null,
+): DateObject | null => {
+    if (!dateValue) return null
+    try {
+        const raw = dateValue.split('T')[0]
+        return new DateObject({
+            date: raw,
+            calendar: gregorian,
+            locale: gregorian_en,
+        }).convert(persian, persian_fa)
+    } catch {
+        return null
+    }
+}
+
+export const toGregorianDateString = (dateObj?: DateObject | null): string => {
+    if (!dateObj) return ''
+    try {
+        const cloned = new DateObject(dateObj)
+        return cloned.convert(gregorian, gregorian_en).format('YYYY-MM-DD')
+    } catch {
+        return ''
+    }
+}
+
+export const formatToJalaliDisplay = (dateStr?: string | null): string => {
+    if (!dateStr) return '-'
+    try {
+        const d = toJalaliDateObject(dateStr)
+        return d ? d.format('YYYY/MM/DD') : '-'
+    } catch {
+        return dateStr.split('T')[0] || '-'
+    }
+}
+
+const getArrayFromResponse = <T,>(res: any): T[] => {
     if (Array.isArray(res)) return res
-    if (Array.isArray(res.data)) return res.data
-    if (Array.isArray(res.data?.data)) return res.data.data
-    if (Array.isArray(res.items)) return res.items
+    if (res?.data && Array.isArray(res.data)) return res.data
+    if (res?.data?.data && Array.isArray(res.data.data)) return res.data.data
+    if (res?.items && Array.isArray(res.items)) return res.items
     return []
 }
 
-const WEEK_DAYS = [
+const WEEK_DAYS: OptionType[] = [
     { value: 'Saturday', label: 'شنبه' },
     { value: 'Sunday', label: 'یکشنبه' },
     { value: 'Monday', label: 'دوشنبه' },
@@ -62,7 +103,6 @@ const WEEK_DAYS = [
     { value: 'Friday', label: 'جمعه' },
 ]
 
-// تابع اعتبارسنجی دقیق ساعت‌ها برای جلوگیری از مقادیر اشتباه
 function validateTimeRange(startTime: string, endTime: string): { isValid: boolean; message: string } {
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
 
@@ -87,49 +127,66 @@ function validateTimeRange(startTime: string, endTime: string): { isValid: boole
     return { isValid: true, message: 'زمان معتبر است' };
 }
 
-
-
 export default function GymClassesSection() {
     const [classes, setClasses] = useState<GymClass[]>([])
     const [sportOptions, setSportOptions] = useState<OptionType[]>([])
     const [trainerOptions, setTrainerOptions] = useState<OptionType[]>([])
     const [packageOptions, setPackageOptions] = useState<OptionType[]>([])
-    const [loading, setLoading] = useState(false)
-
+    const [loading, setLoading] = useState(true)
     const [editingClass, setEditingClass] = useState<GymClass | null>(null)
 
-    // فیلدهای فرم کلاس
+    // Form states
     const [selectedSport, setSelectedSport] = useState<OptionType | null>(null)
-    const [selectedTrainer, setSelectedTrainer] = useState<OptionType | null>(null)
-    const [selectedPackage, setSelectedPackage] = useState<OptionType | null>(null)
+    const [selectedTrainer, setSelectedTrainer] = useState<OptionType | null>(
+        null,
+    )
+    const [selectedPackage, setSelectedPackage] = useState<OptionType | null>(
+        null,
+    )
     const [title, setTitle] = useState('')
     const [groupName, setGroupName] = useState('')
     const [capacity, setCapacity] = useState<number | ''>('')
-    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
 
-    // مدیریت زمان‌بندی‌ها (Schedules)
+    // نگهداری تاریخ به صورت DateObject شمسی
+    const [startDate, setStartDate] = useState<DateObject | null>(
+        new DateObject({ calendar: persian, locale: persian_fa }),
+    )
+
+    // Schedule states
     const [schedules, setSchedules] = useState<ScheduleItem[]>([])
-    const [selectedDay, setSelectedDay] = useState<OptionType | null>(WEEK_DAYS[0])
+    const [selectedDay, setSelectedDay] = useState<OptionType | null>(
+        WEEK_DAYS[0],
+    )
     const [startTime, setStartTime] = useState('16:00')
     const [endTime, setEndTime] = useState('17:30')
-    const [editingScheduleId, setEditingScheduleId] = useState<number | null>(null)
+    const [editingScheduleId, setEditingScheduleId] = useState<number | null>(
+        null,
+    )
 
-    // دیالوگ حذف کلاس
-    const [deleteId, setDeleteId] = useState<number | null>(null)
+    // Delete dialog state
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-const handleAddSchedule = () => {
-    // استخراج دقیق مقدار value چه به صورت آبجکت باشد چه به صورت مقدار خام
-    const dayValue = selectedDay && typeof selectedDay === 'object' ? (selectedDay as any).value : selectedDay;
-    
-    if (!dayValue || !startTime || !endTime) return
-    
-    const newSchedule: ScheduleItem = {
-      dayOfWeek: String(dayValue),
-      startTime,
-      endTime,
+    const [deleteId, setDeleteId] = useState<number | null>(null)
+
+    const handleAddSchedule = () => {
+        if (!selectedDay) {
+            alert('لطفاً روز را انتخاب کنید')
+            return
+        }
+        if (!validateTimeRange(startTime, endTime)) {
+            alert('زمان شروع باید قبل از زمان پایان باشد')
+            return
+        }
+
+        setSchedules((prev) => [
+            ...prev,
+            {
+                dayOfWeek: String(selectedDay.value),
+                startTime,
+                endTime,
+            },
+        ])
     }
-    setSchedules([...schedules, newSchedule])
-  }
+
     const handleTimeChange = (
         e: React.ChangeEvent<HTMLInputElement>,
         setter: (val: string) => void
@@ -143,93 +200,82 @@ const handleAddSchedule = () => {
     }
 
     const fetchData = async () => {
-        setLoading(true)
         try {
-            const classRes = await ApiService.get<any>('/gym-classes')
-            setClasses(getArrayFromResponse(classRes))
+            setLoading(true)
+            const [clsRes, sportsRes, trainersRes, packagesRes] =
+                await Promise.all([
+                    ApiService.get<any>('/gym-classes'),
+                    ApiService.get<any>('/sports'),
+                    ApiService.get<any>('/trainers'),
+                    ApiService.get<any>('/packages'),
+                ])
 
-            const sportsRes = await ApiService.get<any>('/sports')
+            setClasses(getArrayFromResponse<GymClass>(clsRes))
+
             setSportOptions(
-                getArrayFromResponse(sportsRes).map((item: any) => ({
-                    value: item.id,
-                    label: item.name || `رشته ${item.id}`,
-                }))
+                getArrayFromResponse<any>(sportsRes).map((s) => ({
+                    value: s.id,
+                    label: s.title || s.name,
+                })),
             )
 
-            const trainersRes = await ApiService.get<any>('/trainers')
             setTrainerOptions(
-                getArrayFromResponse(trainersRes).map((item: any) => ({
-                    value: item.id,
-                    label: item.firstName ? `${item.firstName} ${item.lastName}` : item.name || `مربی ${item.id}`,
-                }))
+                getArrayFromResponse<any>(trainersRes).map((t) => ({
+                    value: t.id,
+                    label: `${t.firstName} ${t.lastName}`,
+                })),
             )
 
-            const packagesRes = await ApiService.get<any>('/packages')
             setPackageOptions(
-                getArrayFromResponse(packagesRes).map((item: any) => ({
-                    value: item.id,
-                    label: item.title || `پکیج ${item.id}`,
-                }))
+                getArrayFromResponse<any>(packagesRes).map((p) => ({
+                    value: p.id,
+                    label: `${p.title} (${p.sessionCount} جلسه - ${Number(p.price).toLocaleString()} تومان)`,
+                })),
             )
         } catch (err) {
-            console.error('خطا در دریافت اطلاعات:', err)
+            console.error('Error fetching data:', err)
         } finally {
             setLoading(false)
         }
     }
 
-    useEffect(() => {
-        fetchData()
-    }, [])
-
     const resetForm = () => {
-        setEditingClass(null)
+        setTitle('')
+        setGroupName('')
         setSelectedSport(null)
         setSelectedTrainer(null)
         setSelectedPackage(null)
-        setTitle('')
-        setGroupName('')
         setCapacity('')
-        setStartDate(new Date().toISOString().split('T')[0])
+        setStartDate(new DateObject({ calendar: persian, locale: persian_fa }))
         setSchedules([])
+        setEditingClass(null)
         setEditingScheduleId(null)
-        setSelectedDay(WEEK_DAYS[0])
-        setStartTime('16:00')
-        setEndTime('17:30')
     }
 
     const handleSelectForEdit = async (cls: GymClass) => {
         setEditingClass(cls)
-        setTitle(cls.title || '')
+        setTitle(cls.title)
         setGroupName(cls.groupName || '')
-        setCapacity(cls.capacity || '')
-        setStartDate(cls.startDate ? cls.startDate.split('T')[0] : new Date().toISOString().split('T')[0])
+        setCapacity(cls.capacity)
+
+        // تبدیل تاریخ میلادی دریافتی به شمسی
+        setStartDate(toJalaliDateObject(cls.startDate))
 
         try {
-            const detailRes = await ApiService.get<any>(`/gym-classes/${cls.id}`)
-            if (detailRes) {
-                if (detailRes.schedules) setSchedules(detailRes.schedules)
-                if (detailRes.sportId) {
-                    const sOpt = sportOptions.find((opt) => Number(opt.value) === Number(detailRes.sportId))
-                    if (sOpt) setSelectedSport(sOpt)
-                }
-                if (detailRes.trainerId) {
-                    const tOpt = trainerOptions.find((opt) => Number(opt.value) === Number(detailRes.trainerId))
-                    if (tOpt) setSelectedTrainer(tOpt)
-                }
-                if (detailRes.packageId) {
-                    const pOpt = packageOptions.find((opt) => Number(opt.value) === Number(detailRes.packageId))
-                    if (pOpt) setSelectedPackage(pOpt)
-                }
+            const detailsRes = await ApiService.get<any>(
+                `/gym-classes/${cls.id}`,
+            )
+            const data = detailsRes.data || detailsRes
+            if (data.schedules) {
+                setSchedules(data.schedules)
             }
         } catch (err) {
-            console.error('خطا در دریافت جزئیات کلاس:', err)
+            console.error('Error fetching class details:', err)
             setSchedules(cls.schedules || [])
         }
     }
 
-    // افزودن زمان به لیست با بررسی اعتبارسنجی
-    const handleSaveSchedule = async () => {
+   const handleSaveSchedule = async () => {
         if (!selectedDay) {
             alert("لطفاً روز هفته را انتخاب کنید.");
             return;
@@ -277,100 +323,100 @@ const handleAddSchedule = () => {
         setEndTime('17:30');
     }
 
-    const handleEditScheduleSelect = (sch: ScheduleItem) => {
-        if (sch.id) {
-            setEditingScheduleId(sch.id)
-        }
-        const matchedDay = WEEK_DAYS.find((d) => d.value === sch.dayOfWeek)
-        if (matchedDay) setSelectedDay(matchedDay)
+    const handleEditScheduleClick = (sch: ScheduleItem) => {
+        if (!sch.id) return
+        setEditingScheduleId(sch.id)
+        const dayOpt = WEEK_DAYS.find((d) => d.value === sch.dayOfWeek) || null
+        setSelectedDay(dayOpt)
         setStartTime(sch.startTime.slice(0, 5))
         setEndTime(sch.endTime.slice(0, 5))
     }
 
-    const handleRemoveSchedule = async (index: number, scheduleId?: number) => {
-        if (editingClass && scheduleId) {
+    const handleRemoveSchedule = async (index: number, sch?: ScheduleItem) => {
+        if (editingClass && sch?.id) {
             try {
-                await ApiService.delete(`/gym-classes/schedules/${scheduleId}`)
-                setSchedules(schedules.filter((s) => s.id !== scheduleId))
-                fetchData()
-            } catch (err) {
-                console.error('خطا در حذف زمان‌بندی:', err)
+                await ApiService.delete(
+                    `/gym-classes/${editingClass.id}/schedules/${sch.id}`,
+                )
+                setSchedules((prev) => prev.filter((s) => s.id !== sch.id))
+            } catch (err: any) {
+                alert(err.response?.data?.message || 'خطا در حذف زمان‌بندی')
             }
         } else {
-            setSchedules(schedules.filter((_, i) => i !== index))
+            setSchedules((prev) => prev.filter((_, i) => i !== index))
         }
     }
 
-   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
 
-    // ۱. اعتبارسنجی اولیه الزامی بودن فیلدها در فرانت
-    if (!title.trim() || !selectedSport || !selectedTrainer) {
-      alert('لطفاً فیلدهای الزامی (عنوان، رشته ورزشی و مربی) را پر کنید.');
-      return;
-    }
+        if (!title.trim() || !selectedSport || !selectedTrainer) {
+            alert('لطفاً فیلدهای اجباری را تکمیل کنید')
+            return
+        }
 
-    if (!editingClass && schedules.length === 0) {
-      alert('حداقل یک برنامه زمانی (سانس) برای کلاس الزامی است.');
-      return;
-    }
+        if (!editingClass && schedules.length === 0) {
+            alert('حداقل یک زمان‌بندی برای ایجاد کلاس لازم است')
+            return
+        }
 
-    if (!capacity || Number(capacity) <= 0) {
-      alert('ظرفیت کلاس باید بیشتر از صفر باشد.');
-      return;
-    }
+        if (!capacity || Number(capacity) <= 0) {
+            alert('ظرفیت باید یک عدد بزرگتر از صفر باشد')
+            return
+        }
 
-    try {
-      if (editingClass) {
-        // ویرایش کلاس
-        const payload = {
-          sportId: Number(selectedSport.value),
-          trainerId: Number(selectedTrainer.value),
-          packageId: selectedPackage && selectedPackage.value ? Number(selectedPackage.value) : null,
-          title: title.trim(),
-          groupName: groupName.trim(),
-          capacity: Number(capacity),
-        };
-        await ApiService.put(`/gym-classes/${editingClass.id}`, payload);
-      } else {
-        // فرمت کردن زمان‌بندی‌ها
-        const formattedSchedules = schedules.map((item) => ({
-          dayOfWeek: item.dayOfWeek,
-          startTime: item.startTime.length === 5 ? `${item.startTime}:00` : item.startTime,
-          endTime: item.endTime.length === 5 ? `${item.endTime}:00` : item.endTime,
-        }));
+        try {
+            if (editingClass) {
+                const payload = {
+                    sportId: Number(selectedSport.value),
+                    trainerId: Number(selectedTrainer.value),
+                    title: title.trim(),
+                    groupName: groupName.trim(),
+                    capacity: Number(capacity),
+                }
+                await ApiService.put(`/gym-classes/${editingClass.id}`, payload)
+            } else {
+                // تبدیل تاریخ شمسی به فرمت میلادی YYYY-MM-DD
+                const gregorianStartDate = toGregorianDateString(startDate)
 
-        // ✅ درست: ارسال مستقیم فیلدها در بادی بدون رپر dto
-        const payload = {
-          sportId: Number(selectedSport.value),
-          trainerId: Number(selectedTrainer.value),
-          // اگر پکیج انتخاب نشده باشد، مقدار null ارسال شود تا خطای FK نخورد
-          packageId: selectedPackage && selectedPackage.value ? Number(selectedPackage.value) : null,
-          title: title.trim(),
-          groupName: groupName.trim(),
-          capacity: Number(capacity),
-          startDate: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
-          schedules: formattedSchedules,
-        };
+                const payload = {
+                    sportId: Number(selectedSport.value),
+                    trainerId: Number(selectedTrainer.value),
+                    packageId: selectedPackage
+                        ? Number(selectedPackage.value)
+                        : undefined,
+                    title: title.trim(),
+                    groupName: groupName.trim(),
+                    capacity: Number(capacity),
+                    startDate: gregorianStartDate, // فرمت استاندارد بدون بخش تایم و Z
+                    schedules: schedules.map((s) => ({
+                        dayOfWeek: s.dayOfWeek,
+                        startTime:
+                            s.startTime.length === 5
+                                ? `${s.startTime}:00`
+                                : s.startTime,
+                        endTime:
+                            s.endTime.length === 5
+                                ? `${s.endTime}:00`
+                                : s.endTime,
+                    })),
+                }
 
-        await ApiService.post('/gym-classes', payload);
-      }
+                await ApiService.post('/gym-classes', payload)
+            }
 
-      resetForm();
-      fetchData();
-    } catch (error: any) {
-      console.error('خطا در ثبت کلاس:', error);
-      if (error?.response?.data?.errors) {
-        const errorMessages = Object.values(error.response.data.errors).flat().join('\n');
-        alert(`خطای اعتبارسنجی سرور:\n${errorMessages}`);
-      }
-    }
-  };
-
-
-    const confirmDelete = (id: number) => {
-        setDeleteId(id)
-        setIsDeleteDialogOpen(true)
+            resetForm()
+            fetchData()
+        } catch (err: any) {
+            console.error('Submit error:', err)
+            const errors = err?.response?.data?.errors
+            if (errors) {
+                const msg = Object.values(errors).flat().join('\n')
+                alert(`خطا در اعتبارسنجی:\n${msg}`)
+            } else {
+                alert(err?.response?.data?.message || 'خطا در ثبت کلاس')
+            }
+        }
     }
 
     const handleDeleteClass = async () => {
@@ -380,170 +426,172 @@ const handleAddSchedule = () => {
             setIsDeleteDialogOpen(false)
             setDeleteId(null)
             fetchData()
-        } catch (err) {
-            console.error('خطا در حذف کلاس:', err)
+        } catch (err: any) {
+            alert(err.response?.data?.message || 'خطا در حذف کلاس')
         }
     }
 
+    useEffect(() => {
+        fetchData()
+    }, [])
+
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* فرم ثبت / ویرایش */}
-            <div className="bg-white p-5 rounded-2xl border border-[var(--primary-mild)]/30 shadow-sm h-fit">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-[var(--primary)] flex items-center gap-2">
-                        {editingClass ? (
-                            <>
-                                <HiOutlinePencil className="w-5 h-5 text-blue-600" />
-                                ویرایش اطلاعات کلاس
-                            </>
-                        ) : (
-                            <>
-                                <HiOutlinePlus className="w-5 h-5" />
-                                تشکیل کلاس جدید
-                            </>
-                        )}
-                    </h3>
-                    {editingClass && (
-                        <button
-                            type="button"
-                            onClick={resetForm}
-                            className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-lg transition-colors"
-                        >
-                            <HiOutlineX className="w-3.5 h-3.5" />
-                            انصراف
-                        </button>
-                    )}
-                </div>
+        <div className="space-y-6">
+            {/* فرم ایجاد / ویرایش کلاس */}
+            <div className="rounded-2xl border border-[var(--primary-mild)]/30 bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-sm font-bold text-[var(--primary)]">
+                    {editingClass
+                        ? 'ویرایش کلاس ورزشی'
+                        : 'تعریف کلاس ورزشی جدید'}
+                </h2>
 
-                <form onSubmit={handleSubmit} className="space-y-3 text-xs">
-                    <div>
-                        <label className="block font-semibold mb-1 text-[var(--primary)]">عنوان کلاس *</label>
-                        <input
-                            type="text"
-                            required
-                            placeholder="مثلاً: کلاس بدنسازی گروه A"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            className="w-full h-9 px-3 border border-gray-200 rounded-xl bg-[var(--primary-subtle)]/30 focus:outline-none focus:border-[var(--primary)]"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
                         <div>
-                            <label className="block font-semibold mb-1 text-[var(--primary)]">نام گروه / سانس</label>
+                            <label className="mb-1 block text-xs font-medium text-[var(--primary)]">
+                                عنوان کلاس{' '}
+                                <span className="text-red-500">*</span>
+                            </label>
                             <input
                                 type="text"
-                                placeholder="مثلاً: گروه خانم ها"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder="مثلاً: کلاس بدنسازی عمومی"
+                                className="w-full rounded-xl border border-[var(--primary-mild)]/40 bg-[var(--primary-subtle)]/30 px-3 py-2 text-xs text-[var(--primary)] outline-none focus:border-[var(--primary)]"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-xs font-medium text-[var(--primary)]">
+                                نام گروه
+                            </label>
+                            <input
+                                type="text"
                                 value={groupName}
                                 onChange={(e) => setGroupName(e.target.value)}
-                                className="w-full h-9 px-3 border border-gray-200 rounded-xl bg-[var(--primary-subtle)]/30 focus:outline-none focus:border-[var(--primary)]"
+                                placeholder="مثلاً: گروه ۳ تا ۵"
+                                className="w-full rounded-xl border border-[var(--primary-mild)]/40 bg-[var(--primary-subtle)]/30 px-3 py-2 text-xs text-[var(--primary)] outline-none focus:border-[var(--primary)]"
                             />
                         </div>
+
                         <div>
-                            <label className="block font-semibold mb-1 text-[var(--primary)]">ظرفیت (نفر)</label>
+                            <label className="mb-1 block text-xs font-medium text-[var(--primary)]">
+                                ظرفیت (نفر){' '}
+                                <span className="text-red-500">*</span>
+                            </label>
                             <input
                                 type="number"
-                                placeholder="15"
+                                min="1"
                                 value={capacity}
-                                onChange={(e) => setCapacity(e.target.value === '' ? '' : Number(e.target.value))}
-                                className="w-full h-9 px-3 border border-gray-200 rounded-xl bg-[var(--primary-subtle)]/30 focus:outline-none focus:border-[var(--primary)]"
+                                onChange={(e) =>
+                                    setCapacity(
+                                        e.target.value === ''
+                                            ? ''
+                                            : Number(e.target.value),
+                                    )
+                                }
+                                placeholder="مثلاً: 15"
+                                className="w-full rounded-xl border border-[var(--primary-mild)]/40 bg-[var(--primary-subtle)]/30 px-3 py-2 text-xs text-[var(--primary)] outline-none focus:border-[var(--primary)]"
+                                required
                             />
                         </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2">
                         <div>
-                            <label className="block font-semibold mb-1 text-[var(--primary)]">رشته ورزشی *</label>
+                            <label className="mb-1 block text-xs font-medium text-[var(--primary)]">
+                                رشته ورزشی{' '}
+                                <span className="text-red-500">*</span>
+                            </label>
                             <Select
-                                placeholder="انتخاب رشته..."
                                 options={sportOptions}
                                 value={selectedSport}
-                                onChange={(opt: any) => setSelectedSport(opt)}
+                                onChange={setSelectedSport}
+                                placeholder="انتخاب رشته ورزشی"
                             />
                         </div>
+
                         <div>
-                            <label className="block font-semibold mb-1 text-[var(--primary)]">مربی *</label>
+                            <label className="mb-1 block text-xs font-medium text-[var(--primary)]">
+                                مربی <span className="text-red-500">*</span>
+                            </label>
                             <Select
-                                placeholder="انتخاب مربی..."
                                 options={trainerOptions}
                                 value={selectedTrainer}
-                                onChange={(opt: any) => setSelectedTrainer(opt)}
+                                onChange={setSelectedTrainer}
+                                placeholder="انتخاب مربی"
                             />
                         </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                        <div>
-                            <label className="block font-semibold mb-1 text-[var(--primary)]">پکیج مرتبط</label>
-                            <Select
-                                placeholder="انتخاب پکیج..."
-                                options={packageOptions}
-                                value={selectedPackage}
-                                onChange={(opt: any) => setSelectedPackage(opt)}
-                            />
-                        </div>
                         {!editingClass && (
                             <div>
-                                <label className="block font-semibold mb-1 text-[var(--primary)]">تاریخ شروع</label>
+                                <label className="mb-1 block text-xs font-medium text-[var(--primary)]">
+                                    پکیج پیش‌فرض
+                                </label>
+                                <Select
+                                    options={packageOptions}
+                                    value={selectedPackage}
+                                    onChange={setSelectedPackage}
+                                    placeholder="انتخاب پکیج (اختیاری)"
+                                />
+                            </div>
+                        )}
+
+                        {!editingClass && (
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-[var(--primary)]">
+                                    تاریخ شروع{' '}
+                                    <span className="text-red-500">*</span>
+                                </label>
                                 <DatePicker
+                                    calendar={persian}
+                                    locale={persian_fa}
+                                    calendarPosition="bottom-right"
+                                    value={startDate}
+                                    onChange={(date: DateObject | null) =>
+                                        setStartDate(date)
+                                    }
+                                    inputClass="w-full rounded-xl border border-[var(--primary-mild)]/40 bg-[var(--primary-subtle)]/30 px-3 py-2 text-xs text-[var(--primary)] outline-none focus:border-[var(--primary)]"
                                     placeholder="انتخاب تاریخ شروع"
-                                    value={startDate ? new Date(startDate) : null}
-                                    onChange={(date: Date | null) => {
-                                        if (date) {
-                                            const formattedDate = date.toISOString().split("T")[0];
-                                            setStartDate(formattedDate);
-                                        } else {
-                                            setStartDate("");
-                                        }
-                                    }}
                                 />
                             </div>
                         )}
                     </div>
 
-                    {/* بخش زمان‌بندی سانس‌ها */}
-                    <div className="p-3 bg-[var(--primary-subtle)]/50 rounded-xl border border-[var(--primary-mild)]/20 space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="block font-bold text-[var(--primary)]">زمان‌بندی سانس‌ها (Schedules)</span>
-                            {editingScheduleId && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setEditingScheduleId(null)
-                                        setSelectedDay(WEEK_DAYS[0])
-                                        setStartTime('16:00')
-                                        setEndTime('17:30')
-                                    }}
-                                    className="text-[10px] text-rose-500 hover:underline"
-                                >
-                                    انصراف از ویرایش زمان
-                                </button>
-                            )}
-                        </div>
+                    {/* بخش زمان‌بندی روزها و ساعات */}
+                    <div className="mt-4 rounded-xl border border-dashed border-[var(--primary-mild)]/40 p-4">
+                        <h3 className="mb-3 text-xs font-bold text-[var(--primary)]">
+                            {editingClass
+                                ? 'مدیریت زمان‌بندی جلسات'
+                                : 'تعریف زمان‌بندی جلسات'}
+                        </h3>
 
-                        <div className="grid grid-cols-3 gap-1.5">
-                            <div>
-                                <label className="block text-[10px] text-gray-500 mb-0.5">روز</label>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="w-36">
                                 <Select
                                     options={WEEK_DAYS}
                                     value={selectedDay}
-                                    onChange={(opt: any) => setSelectedDay(opt)}
+                                    onChange={setSelectedDay}
+                                    placeholder="روز هفته"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-[10px] text-gray-500 mb-0.5">از ساعت</label>
+
+                            <div className="flex items-center gap-1 text-xs text-[var(--primary)]">
+                                <span>از:</span>
                                 <input
                                     type="text"
                                     placeholder="16:00"
                                     maxLength={5}
                                     value={startTime}
-                                    onChange={(e) => handleTimeChange(e, setStartTime)}
+                                    onChange={(e) =>
+                                        handleTimeChange(e, setStartTime)
+                                    }
                                     className="w-full h-9 px-2 border border-gray-200 rounded-xl text-center bg-white dir-ltr focus:outline-none focus:border-[var(--primary)]"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-[10px] text-gray-500 mb-0.5">تا ساعت</label>
-                                <input
+
+                            <div className="flex items-center gap-1 text-xs text-[var(--primary)]">
+                                <span>تا:</span>
+                                 <input
                                     type="text"
                                     placeholder="17:00"
                                     maxLength={5}
@@ -552,58 +600,76 @@ const handleAddSchedule = () => {
                                     className="w-full h-9 px-2 border border-gray-200 rounded-xl text-center bg-white dir-ltr focus:outline-none focus:border-[var(--primary)]"
                                 />
                             </div>
+
+                            {editingClass ? (
+                                <button
+                                    type="button"
+                                    onClick={handleSaveSchedule}
+                                    className="flex items-center gap-1 rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs text-white transition-colors hover:bg-[var(--primary-mild)]"
+                                >
+                                    <HiOutlineCheck className="h-4 w-4" />
+                                    <span>
+                                        {editingScheduleId
+                                            ? 'ویرایش تایم'
+                                            : 'افزودن تایم'}
+                                    </span>
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={handleAddSchedule}
+                                    className="flex items-center gap-1 rounded-xl bg-[var(--primary)] px-3 py-1.5 text-xs text-white transition-colors hover:bg-[var(--primary-mild)]"
+                                >
+                                    <HiOutlinePlus className="h-4 w-4" />
+                                    <span>افزودن روز</span>
+                                </button>
+                            )}
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={handleSaveSchedule}
-                            className="w-full py-1.5 bg-[var(--primary-mild)] text-white font-semibold rounded-lg text-xs hover:opacity-95 transition-all flex items-center justify-center gap-1"
-                        >
-                            {editingScheduleId ? (
-                                <>
-                                    <HiOutlineCheck className="w-3.5 h-3.5" />
-                                    بروزرسانی این زمان
-                                </>
-                            ) : (
-                                <>
-                                    <HiOutlinePlus className="w-3.5 h-3.5" />
-                                    افزودن زمان به لیست
-                                </>
-                            )}
-                        </button>
-
+                        {/* لیست زمان‌بندی‌های ثبت شده */}
                         {schedules.length > 0 && (
-                            <div className="space-y-1.5 pt-2">
-                                {schedules.map((sch, idx) => {
-                                    const dayObj = WEEK_DAYS.find((d) => d.value === sch.dayOfWeek)
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {schedules.map((sch, index) => {
+                                    const dayLabel =
+                                        WEEK_DAYS.find(
+                                            (d) => d.value === sch.dayOfWeek,
+                                        )?.label || sch.dayOfWeek
                                     return (
                                         <div
-                                            key={sch.id || idx}
-                                            className="flex items-center justify-between bg-white p-2 rounded-xl border border-gray-200 text-xs"
+                                            key={index}
+                                            className="flex items-center gap-2 rounded-lg bg-[var(--primary-subtle)] px-2.5 py-1 text-xs text-[var(--primary)]"
                                         >
-                                            <span className="text-gray-700 font-medium">
-                                                {dayObj ? dayObj.label : sch.dayOfWeek}: از ساعت {sch.startTime.slice(0, 5)} الی {sch.endTime.slice(0, 5)}
+                                            <HiOutlineClock className="h-3.5 w-3.5 text-[var(--primary-mild)]" />
+                                            <span>
+                                                {dayLabel} (
+                                                {sch.startTime.slice(0, 5)} -{' '}
+                                                {sch.endTime.slice(0, 5)})
                                             </span>
-                                            <div className="flex items-center gap-1">
-                                                {editingClass && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleEditScheduleSelect(sch)}
-                                                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                                                        title="ویرایش زمان"
-                                                    >
-                                                        <HiOutlinePencil className="w-3.5 h-3.5" />
-                                                    </button>
-                                                )}
+                                            {editingClass && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleRemoveSchedule(idx, sch.id)}
-                                                    className="p-1 text-rose-500 hover:bg-rose-50 rounded"
-                                                    title="حذف زمان"
+                                                    onClick={() =>
+                                                        handleEditScheduleClick(
+                                                            sch,
+                                                        )
+                                                    }
+                                                    className="text-[var(--primary-mild)] hover:text-[var(--primary)]"
                                                 >
-                                                    <HiOutlineTrash className="w-3.5 h-3.5" />
+                                                    <HiOutlinePencil className="h-3.5 w-3.5" />
                                                 </button>
-                                            </div>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    handleRemoveSchedule(
+                                                        index,
+                                                        sch,
+                                                    )
+                                                }
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                <HiOutlineX className="h-3.5 w-3.5" />
+                                            </button>
                                         </div>
                                     )
                                 })}
@@ -611,101 +677,148 @@ const handleAddSchedule = () => {
                         )}
                     </div>
 
-                    <button
-                        type="submit"
-                        className="w-full py-2.5 bg-[var(--primary)] text-white font-bold rounded-xl text-xs hover:opacity-95 transition-opacity mt-2"
-                    >
-                        {editingClass ? 'بروزرسانی اطلاعات کلاس' : 'ایجاد کلاس'}
-                    </button>
+                    <div className="flex justify-end gap-2 pt-2">
+                        {editingClass && (
+                            <button
+                                type="button"
+                                onClick={resetForm}
+                                className="rounded-xl border border-[var(--primary-mild)]/40 px-4 py-2 text-xs font-semibold text-[var(--primary-mild)] hover:bg-[var(--primary-subtle)]"
+                            >
+                                انصراف
+                            </button>
+                        )}
+                        <button
+                            type="submit"
+                            className="rounded-xl bg-[var(--primary)] px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[var(--primary-mild)]"
+                        >
+                            {editingClass
+                                ? 'ذخیره تغییرات کلاس'
+                                : 'تشکیل کلاس جدید'}
+                        </button>
+                    </div>
                 </form>
             </div>
 
-            {/* لیست کلاس‌های فعال */}
-            <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-[var(--primary-mild)]/30 shadow-sm">
-                <h3 className="text-sm font-bold text-[var(--primary)] mb-4">لیست کلاس‌های فعال</h3>
+            {/* لیست کلاس‌های ورزشی */}
+            <div className="space-y-4">
+                <h3 className="text-sm font-bold text-[var(--primary)]">
+                    کلاس‌های فعال
+                </h3>
+
                 {loading ? (
-                    <p className="text-xs text-gray-500 py-4 text-center">در حال بارگذاری...</p>
+                    <p className="text-xs text-gray-500">
+                        در حال بارگذاری لیست کلاس‌ها...
+                    </p>
                 ) : classes.length === 0 ? (
-                    <p className="text-xs text-gray-400 py-8 text-center">هیچ کلاسی ثبت نشده است.</p>
+                    <p className="text-xs text-gray-500">
+                        هیچ کلاسی ثبت نشده است.
+                    </p>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {classes.map((cls) => (
                             <div
                                 key={cls.id}
-                                className="p-4 rounded-xl border border-gray-100 bg-[var(--primary-subtle)]/20 hover:border-[var(--primary-mild)]/40 transition-all"
+                                className="relative flex flex-col justify-between rounded-2xl border border-[var(--primary-mild)]/30 bg-white p-4 shadow-sm"
                             >
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3 mb-3">
-                                    <div>
-                                        <h4 className="text-sm font-bold text-[var(--primary)]">{cls.title}</h4>
-                                        <p className="text-xs text-gray-500 flex items-center gap-3 mt-1">
-                                            <span className="flex items-center gap-1">
-                                                <HiOutlineAcademicCap className="w-4 h-4 text-gray-400" />
-                                                {cls.sportName || 'رشته نامشخص'}
-                                            </span>
-                                            <span className="flex items-center gap-1">
-                                                <HiOutlineUser className="w-4 h-4 text-gray-400" />
-                                                {cls.trainerName || 'مربی نامشخص'}
-                                            </span>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-bold text-[var(--primary)]">
+                                            {cls.title}
+                                        </h4>
+                                        <span className="rounded-md bg-[var(--primary-subtle)] px-2 py-0.5 text-[10px] text-[var(--primary)]">
+                                            {cls.sportName}
+                                        </span>
+                                    </div>
+
+                                    {cls.groupName && (
+                                        <p className="text-xs text-gray-500">
+                                            گروه: {cls.groupName}
                                         </p>
+                                    )}
+
+                                    <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                        <HiOutlineUser className="h-4 w-4 text-[var(--primary-mild)]" />
+                                        <span>مربی: {cls.trainerName}</span>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => handleSelectForEdit(cls)}
-                                            className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                                            title="ویرایش"
-                                        >
-                                            <HiOutlinePencil className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => confirmDelete(cls.id)}
-                                            className="p-1.5 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors"
-                                            title="حذف"
-                                        >
-                                            <HiOutlineTrash className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-gray-600">
-                                    <div className="flex items-center gap-1.5">
-                                        <HiOutlineUsers className="w-4 h-4 text-[var(--primary)]" />
+                                    <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                        <HiOutlineUsers className="h-4 w-4 text-[var(--primary-mild)]" />
                                         <span>
-                                            ظرفیت: {cls.remainingCapacity} از {cls.capacity} نفر باقی‌مانده
+                                            ظرفیت: {cls.capacity} نفر
+                                            (باقیمانده:{' '}
+                                            {cls.remainingCapacity ??
+                                                cls.capacity}
+                                            )
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <HiOutlineCalendar className="w-4 h-4 text-[var(--primary)]" />
-                                        <span>شروع: {cls.startDate ? cls.startDate.split('T')[0] : '-'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 col-span-2 sm:col-span-1">
-                                        <span className="bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-md">
-                                            {cls.groupName || 'بدون گروه'}
+
+                                    <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                                        <HiOutlineCalendar className="h-4 w-4 text-[var(--primary-mild)]" />
+                                        <span>
+                                            شروع:{' '}
+                                            {formatToJalaliDisplay(
+                                                cls.startDate,
+                                            )}
                                         </span>
                                     </div>
+
+                                    {cls.schedules &&
+                                        cls.schedules.length > 0 && (
+                                            <div className="mt-2 space-y-1 rounded-lg bg-[var(--primary-subtle)]/40 p-2">
+                                                <span className="block text-[10px] font-bold text-[var(--primary)]">
+                                                    برنامه زمانی:
+                                                </span>
+                                                {cls.schedules.map((s, idx) => {
+                                                    const dayLabel =
+                                                        WEEK_DAYS.find(
+                                                            (d) =>
+                                                                d.value ===
+                                                                s.dayOfWeek,
+                                                        )?.label || s.dayOfWeek
+                                                    return (
+                                                        <div
+                                                            key={idx}
+                                                            className="flex items-center gap-1 text-[11px] text-gray-600"
+                                                        >
+                                                            <HiOutlineClock className="h-3 w-3 text-[var(--primary-mild)]" />
+                                                            <span>
+                                                                {dayLabel}:{' '}
+                                                                {s.startTime.slice(
+                                                                    0,
+                                                                    5,
+                                                                )}{' '}
+                                                                الی{' '}
+                                                                {s.endTime.slice(
+                                                                    0,
+                                                                    5,
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
                                 </div>
 
-                                {cls.schedules && cls.schedules.length > 0 && (
-                                    <div className="mt-3 pt-2 border-t border-dashed border-gray-200">
-                                        <p className="text-[11px] font-semibold text-gray-500 mb-1 flex items-center gap-1">
-                                            <HiOutlineClock className="w-3.5 h-3.5" />
-                                            زمان‌بندی جلسات:
-                                        </p>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {cls.schedules.map((s, idx) => {
-                                                const dayObj = WEEK_DAYS.find((d) => d.value === s.dayOfWeek)
-                                                return (
-                                                    <span
-                                                        key={s.id || idx}
-                                                        className="text-[11px] bg-white px-2 py-1 rounded-md border border-gray-200 text-gray-700"
-                                                    >
-                                                        {dayObj ? dayObj.label : s.dayOfWeek}: {s.startTime.slice(0, 5)} تا {s.endTime.slice(0, 5)}
-                                                    </span>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
+                                <div className="mt-4 flex items-center justify-end gap-2 border-t border-[var(--primary-mild)]/20 pt-3">
+                                    <button
+                                        onClick={() => handleSelectForEdit(cls)}
+                                        className="rounded-lg p-1.5 text-[var(--primary-mild)] hover:bg-[var(--primary-subtle)] hover:text-[var(--primary)]"
+                                        title="ویرایش"
+                                    >
+                                        <HiOutlinePencil className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setDeleteId(cls.id)
+                                            setIsDeleteDialogOpen(true)
+                                        }}
+                                        className="rounded-lg p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600"
+                                        title="حذف"
+                                    >
+                                        <HiOutlineTrash className="h-4 w-4" />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -713,25 +826,39 @@ const handleAddSchedule = () => {
             </div>
 
             {/* دیالوگ تایید حذف */}
-            <Dialog isOpen={isDeleteDialogOpen} onClose={() => setIsDeleteDialogOpen(false)} width={400}>
-                <div className="p-6 text-center space-y-4">
-                    <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                        <HiOutlineExclamation className="w-6 h-6" />
-                    </div>
-                    <h3 className="text-sm font-bold text-[var(--primary)]">تایید حذف کلاس</h3>
-                    <p className="text-xs text-gray-500">آیا از حذف این کلاس اطمینان دارید؟ این عملیات قابل بازگشت نیست.</p>
-                    <div className="flex justify-center gap-2 pt-2">
+            <Dialog
+                isOpen={isDeleteDialogOpen}
+                onClose={() => {
+                    setIsDeleteDialogOpen(false)
+                    setDeleteId(null)
+                }}
+                width={400}
+            >
+                <div className="space-y-4 p-2">
+                    <h3 className="text-sm font-bold text-[var(--primary)]">
+                        حذف کلاس ورزشی
+                    </h3>
+                    <p className="text-xs text-gray-600">
+                        آیا از حذف این کلاس ورزشی مطمئن هستید؟ این عملیات قابل
+                        بازگشت نیست.
+                    </p>
+                    <div className="flex justify-end gap-2 pt-2">
                         <button
-                            onClick={() => setIsDeleteDialogOpen(false)}
-                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-xs font-bold"
+                            type="button"
+                            onClick={() => {
+                                setIsDeleteDialogOpen(false)
+                                setDeleteId(null)
+                            }}
+                            className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
                         >
                             انصراف
                         </button>
                         <button
+                            type="button"
                             onClick={handleDeleteClass}
-                            className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700"
+                            className="rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700"
                         >
-                            حذف شود
+                            حذف
                         </button>
                     </div>
                 </div>

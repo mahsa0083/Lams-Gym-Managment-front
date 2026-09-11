@@ -197,24 +197,27 @@ const INITIAL_FORM_DATA: MemberFormData = {
 /*                                  Helpers                                   */
 /* -------------------------------------------------------------------------- */
 
-const toGregorianDateString = (jalaliDate: DateObject | null): string => {
-  if (!jalaliDate) return "";
-
+function toGregorianDateString(jalaliDate: DateObject | null): string {
+  if (!jalaliDate) {
+    return "";
+  }
+  // اگر از قبل میلادی است یا شمسی است، به میلادی تبدیل می‌کند
   return new DateObject(jalaliDate)
     .convert(gregorian, gregorian_en)
     .format("YYYY-MM-DD");
-};
+}
 
-const toJalaliDateObject = (gregorianDateString?: string | null): DateObject | null => {
-  if (!gregorianDateString) return null;
-
+function toJalaliDateObject(gregorianDateString?: string | null): DateObject | null {
+  if (!gregorianDateString) {
+    return null;
+  }
   return new DateObject({
     date: gregorianDateString,
     format: "YYYY-MM-DD",
     calendar: gregorian,
     locale: gregorian_en,
   }).convert(persian, persian_fa);
-};
+}
 
 const formatDate = (date?: string | null): string => {
   if (!date) return "ثبت نشده";
@@ -911,7 +914,7 @@ export default function MembersManagementPage() {
           <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-[var(--primary-mild)]/30 bg-white shadow-2xl">
             <div className="flex items-center justify-between bg-[var(--sidebar-bg)] p-5 text-[var(--sidebar-text)]">
               <div>
-                <h2 className="font-bold">
+                <h2 className="font-bold text-white">
                   {memberDetails
                     ? `${memberDetails.firstName} ${memberDetails.lastName}`
                     : "جزئیات ورزشکار"}

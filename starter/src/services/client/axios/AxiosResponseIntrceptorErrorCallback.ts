@@ -1,14 +1,9 @@
 import { AxiosError, AxiosRequestConfig } from 'axios';
-import { getSession, signOut } from 'next-auth/react'; // بر اساس کتابخانه auth پروژه‌تان
+import { getSession, signOut } from 'next-auth/react';
 import appConfig from '@/configs/app.config';
-import AxiosBase from './AxiosBase'; // یا نمونه اصلی axios شما
-
-// متغیر نگهدارنده هندلر سراسری ارور دیالوگ
-let globalShowError: ((err: any) => void) | null = null;
-
-export const setGlobalErrorHandler = (handler: (err: any) => void) => {
-    globalShowError = handler;
-};
+import AxiosBase from './AxiosBase';
+// فقط همین یک import اضافه شود
+import { triggerGlobalError } from '@/context/ErrorContext'; 
 
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -18,11 +13,8 @@ let failedQueue: Array<{
 
 const processQueue = (error: any) => {
     failedQueue.forEach((prom) => {
-        if (error) {
-            prom.reject(error);
-        } else {
-            prom.resolve();
-        }
+        if (error) prom.reject(error);
+        else prom.resolve();
     });
     failedQueue = [];
 };
@@ -30,7 +22,7 @@ const processQueue = (error: any) => {
 export const AxiosResponseInterceptorErrorCallback = async (error: AxiosError) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-    // ۱. مدیریت خطای 401 (Unauthorized) و فرآیند Silent Refresh Token
+    // ۱. مدیریت 401
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
         if (isRefreshing) {
             return new Promise((resolve, reject) => {
@@ -44,15 +36,11 @@ export const AxiosResponseInterceptorErrorCallback = async (error: AxiosError) =
         isRefreshing = true;
 
         try {
-            // دریافت سشن جدید که باعث اجرای کال‌بک jwt و تمدید خودکار می‌شود
             const session = await getSession();
-
-            // بررسی انقضای کامل رفرش توکن
             if (!session?.accessToken || (session as any)?.error === 'RefreshAccessTokenError') {
-                throw new Error('Refresh token has expired');
+                throw new Error('Refresh token expired');
             }
 
-            // هدر ریکوئست قبلی با توکن جدید آپدیت می‌شود
             if (originalRequest.headers) {
                 originalRequest.headers.Authorization = `Bearer ${session.accessToken}`;
             }
@@ -61,25 +49,21 @@ export const AxiosResponseInterceptorErrorCallback = async (error: AxiosError) =
             return AxiosBase(originalRequest);
         } catch (refreshError) {
             processQueue(refreshError);
-
-            // خروج کامل و ریدایرکت به صفحه ورود
             const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
             await signOut({
                 callbackUrl: `${appConfig.unAuthenticatedEntryPath}?redirectUrl=${encodeURIComponent(currentPath)}`,
             });
-
             return Promise.reject(refreshError);
         } finally {
             isRefreshing = false;
         }
     }
 
-    // ۲. ارسال تمام خطاهای دیگر (400, 403, 404, 500 و...) به دیالوگ مرکزی
-    if (globalShowError && error.response?.status !== 401) {
-        globalShowError(error);
+    // ۲. ارسال سایر خطاها به مودال مرکزی
+    // فقط کافیست تابع ایمپورت شده را صدا بزنیم
+    if (error.response?.status !== 401) {
+        triggerGlobalError(error);
     }
 
     return Promise.reject(error);
-};
-
-export default AxiosResponseInterceptorErrorCallback;
+}; export default AxiosResponseInterceptorErrorCallback

@@ -6,21 +6,31 @@ import Link from 'next/link'
 
 export type FooterPageContainerType = 'gutterless' | 'contained'
 
+// تعریف دقیق این تایپ در همین فایل باعث رفع مشکل می‌شود
 type FooterProps = {
-    pageContainerType: FooterPageContainerType
+    pageContainerType?: FooterPageContainerType
     className?: string
 }
 
 const FooterContent = () => {
     return (
         <div className="flex items-center justify-between flex-auto w-full">
-            <span>
-                کلیه حقوق محفوظ &copy; {`${new Date().getFullYear()}`}{' '}
-                <span className="font-semibold">{`${APP_NAME}`}</span>
-            </span>
-            <div className="">
+            {/* بخش سمت چپ: لینک لوگو و نام گروه */}
+            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <img 
+                    src="/img/lamisene-logo.png" 
+                    alt="Lamisene Logo" 
+                    className="h-8 w-auto object-contain" 
+                />
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    گروه فناوری Lamisene
+                </span>
+            </Link>
+
+            {/* بخش سمت راست: لینک‌های کمکی */}
+            <div className="text-sm">
                 <Link
-                    className="text-gray"
+                    className="text-gray-500 hover:text-gray-700"
                     href="/#"
                     onClick={(e) => e.preventDefault()}
                 >
@@ -28,7 +38,7 @@ const FooterContent = () => {
                 </Link>
                 <span className="mx-2 text-muted"> | </span>
                 <Link
-                    className="text-gray"
+                    className="text-gray-500 hover:text-gray-700"
                     href="/#"
                     onClick={(e) => e.preventDefault()}
                 >

@@ -9,12 +9,11 @@ type SelectOption = {
   label: string;
 };
 
-// مطابق enum بک‌اند:
-// Male = 0
-// Female = 1
+// مطابق enum بک‌اند: Male = 0, Female = 1
 export type GenderType = 0 | 1;
 
-export interface CreateTrainerDto {
+export interface TrainerDto {
+  id?: string | number;
   firstName: string;
   lastName: string;
   phoneNumber: string;
@@ -25,13 +24,13 @@ export interface CreateTrainerDto {
   commissionPercentage: number;
 }
 
-interface CreateTrainerFormData {
+interface TrainerFormData {
   firstName: string;
   lastName: string;
   phoneNumber: string;
   nationalCode: string;
   gender: GenderType | null;
-  specialty: string | null;
+  specialty: string;
   baseSalary: number | "";
   commissionPercentage: number | "";
 }
@@ -39,10 +38,8 @@ interface CreateTrainerFormData {
 interface TrainerFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateTrainerDto) => Promise<void> | void;
-
-  // برای حالت ویرایش
-  initialData?: CreateTrainerDto | null;
+  onSubmit: (data: TrainerDto) => Promise<void> | void;
+  initialData?: TrainerDto | null;
   mode?: "create" | "edit";
 }
 
@@ -51,24 +48,13 @@ const genderOptions: SelectOption[] = [
   { value: "1", label: "خانم" },
 ];
 
-const specialtyOptions: SelectOption[] = [
-  { value: "بدنسازی", label: "بدنسازی" },
-  { value: "فیتنس", label: "فیتنس" },
-  { value: "کراس فیت", label: "کراس فیت" },
-  { value: "پیلاتس", label: "پیلاتس" },
-  { value: "یوگا", label: "یوگا" },
-  { value: "زومبا", label: "زومبا" },
-  { value: "رزمی", label: "ورزش‌های رزمی" },
-  { value: "شنا", label: "شنا" },
-];
-
-const initialFormData: CreateTrainerFormData = {
+const initialFormData: TrainerFormData = {
   firstName: "",
   lastName: "",
   phoneNumber: "",
   nationalCode: "",
   gender: null,
-  specialty: null,
+  specialty: "",
   baseSalary: "",
   commissionPercentage: "",
 };
@@ -80,19 +66,12 @@ const TrainerFormModal = ({
   initialData,
   mode = "create",
 }: TrainerFormModalProps) => {
-  const [formData, setFormData] =
-    useState<CreateTrainerFormData>(initialFormData);
-
+  const [formData, setFormData] = useState<TrainerFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // هنگام بازشدن فرم:
-  // - در حالت افزودن: فرم خالی شود.
-  // - در حالت ویرایش: اطلاعات مربی داخل فرم قرار بگیرد.
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
+    if (!isOpen) return;
 
     setErrorMessage("");
 
@@ -103,7 +82,7 @@ const TrainerFormModal = ({
         phoneNumber: initialData.phoneNumber ?? "",
         nationalCode: initialData.nationalCode ?? "",
         gender: initialData.gender ?? null,
-        specialty: initialData.specialty ?? null,
+        specialty: initialData.specialty ?? "",
         baseSalary: initialData.baseSalary ?? "",
         commissionPercentage: initialData.commissionPercentage ?? "",
       });
@@ -112,15 +91,10 @@ const TrainerFormModal = ({
     }
   }, [isOpen, mode, initialData]);
 
-  if (!isOpen) {
-    return null;
-  }
+  if (!isOpen) return null;
 
   const handleClose = () => {
-    if (isSubmitting) {
-      return;
-    }
-
+    if (isSubmitting) return;
     setFormData(initialFormData);
     setErrorMessage("");
     onClose();
@@ -128,7 +102,6 @@ const TrainerFormModal = ({
 
   const handlePhoneChange = (value: string) => {
     const cleanedValue = value.replace(/\D/g, "").slice(0, 11);
-
     setFormData((previous) => ({
       ...previous,
       phoneNumber: cleanedValue,
@@ -137,16 +110,13 @@ const TrainerFormModal = ({
 
   const handleNationalCodeChange = (value: string) => {
     const cleanedValue = value.replace(/\D/g, "").slice(0, 10);
-
     setFormData((previous) => ({
       ...previous,
       nationalCode: cleanedValue,
     }));
   };
 
-  const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrorMessage("");
 
@@ -175,8 +145,8 @@ const TrainerFormModal = ({
       return;
     }
 
-    if (!formData.specialty) {
-      setErrorMessage("لطفاً تخصص را انتخاب کنید.");
+    if (!formData.specialty.trim()) {
+      setErrorMessage("لطفاً تخصص را وارد کنید.");
       return;
     }
 
@@ -198,32 +168,29 @@ const TrainerFormModal = ({
       return;
     }
 
-    const payload: CreateTrainerDto = {
+    const payload: TrainerDto = {
+      ...(initialData?.id ? { id: initialData.id } : {}),
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
       phoneNumber: formData.phoneNumber,
       nationalCode: formData.nationalCode,
       gender: formData.gender,
-      specialty: formData.specialty,
+      specialty: formData.specialty.trim(),
       baseSalary: Number(formData.baseSalary),
       commissionPercentage: Number(formData.commissionPercentage),
     };
 
     try {
       setIsSubmitting(true);
-
       await onSubmit(payload);
-
       setFormData(initialFormData);
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Trainer submit error:", error);
-
       const message =
-        error instanceof Error && error.message
-          ? error.message
-          : "خطایی در ذخیره اطلاعات مربی رخ داد. دوباره تلاش کنید.";
-
+        error?.response?.data?.message ||
+        error?.message ||
+        "خطایی در ذخیره اطلاعات مربی رخ داد. دوباره تلاش کنید.";
       setErrorMessage(message);
     } finally {
       setIsSubmitting(false);
@@ -232,12 +199,8 @@ const TrainerFormModal = ({
 
   const modalTitle =
     mode === "edit" ? "ویرایش اطلاعات مربی" : "افزودن مربی جدید";
-
-  const submitButtonText =
-    mode === "edit" ? "ذخیره تغییرات" : "ثبت مربی";
-
-  const submittingText =
-    mode === "edit" ? "در حال ذخیره..." : "در حال ثبت...";
+  const submitButtonText = mode === "edit" ? "ذخیره تغییرات" : "ثبت مربی";
+  const submittingText = mode === "edit" ? "در حال ذخیره..." : "در حال ثبت...";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
@@ -259,12 +222,12 @@ const TrainerFormModal = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          {/* نام و نام خانوادگی */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block font-semibold text-[var(--primary)]">
                 نام <span className="text-red-500">*</span>
               </label>
-
               <input
                 type="text"
                 required
@@ -284,7 +247,6 @@ const TrainerFormModal = ({
               <label className="mb-1 block font-semibold text-[var(--primary)]">
                 نام خانوادگی <span className="text-red-500">*</span>
               </label>
-
               <input
                 type="text"
                 required
@@ -301,12 +263,12 @@ const TrainerFormModal = ({
             </div>
           </div>
 
+          {/* شماره همراه و کد ملی */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block font-semibold text-[var(--primary)]">
                 شماره همراه <span className="text-red-500">*</span>
               </label>
-
               <input
                 type="text"
                 inputMode="numeric"
@@ -315,9 +277,7 @@ const TrainerFormModal = ({
                 dir="ltr"
                 placeholder="09123456789"
                 value={formData.phoneNumber}
-                onChange={(event) =>
-                  handlePhoneChange(event.target.value)
-                }
+                onChange={(event) => handlePhoneChange(event.target.value)}
                 className="w-full rounded-xl border border-[var(--primary-mild)]/40 bg-[var(--primary-subtle)]/30 px-3 py-2.5 text-[var(--primary)] outline-none focus:border-[var(--primary)]"
               />
             </div>
@@ -326,7 +286,6 @@ const TrainerFormModal = ({
               <label className="mb-1 block font-semibold text-[var(--primary)]">
                 کد ملی <span className="text-red-500">*</span>
               </label>
-
               <input
                 type="text"
                 inputMode="numeric"
@@ -335,20 +294,18 @@ const TrainerFormModal = ({
                 dir="ltr"
                 placeholder="0012345678"
                 value={formData.nationalCode}
-                onChange={(event) =>
-                  handleNationalCodeChange(event.target.value)
-                }
+                onChange={(event) => handleNationalCodeChange(event.target.value)}
                 className="w-full rounded-xl border border-[var(--primary-mild)]/40 bg-[var(--primary-subtle)]/30 px-3 py-2.5 text-[var(--primary)] outline-none focus:border-[var(--primary)]"
               />
             </div>
           </div>
 
+          {/* جنسیت و تخصص */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block font-semibold text-[var(--primary)]">
                 جنسیت <span className="text-red-500">*</span>
               </label>
-
               <Select<SelectOption>
                 placeholder="انتخاب جنسیت"
                 options={genderOptions}
@@ -360,9 +317,7 @@ const TrainerFormModal = ({
                 onChange={(option) =>
                   setFormData((previous) => ({
                     ...previous,
-                    gender: option
-                      ? (Number(option.value) as GenderType)
-                      : null,
+                    gender: option ? (Number(option.value) as GenderType) : null,
                   }))
                 }
               />
@@ -372,31 +327,29 @@ const TrainerFormModal = ({
               <label className="mb-1 block font-semibold text-[var(--primary)]">
                 تخصص <span className="text-red-500">*</span>
               </label>
-
-              <Select<SelectOption>
-                placeholder="انتخاب تخصص"
-                options={specialtyOptions}
-                value={
-                  specialtyOptions.find(
-                    (item) => item.value === formData.specialty
-                  ) ?? null
-                }
-                onChange={(option) =>
+              <input
+                type="text"
+                required
+                dir="rtl"
+                placeholder="مثلاً: بدنسازی، فیتنس"
+                value={formData.specialty}
+                onChange={(event) =>
                   setFormData((previous) => ({
                     ...previous,
-                    specialty: option?.value ?? null,
+                    specialty: event.target.value,
                   }))
                 }
+                className="w-full rounded-xl border border-[var(--primary-mild)]/40 bg-[var(--primary-subtle)]/30 px-3 py-2.5 text-[var(--primary)] outline-none focus:border-[var(--primary)]"
               />
             </div>
           </div>
 
+          {/* حقوق پایه و کمیسیون */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block font-semibold text-[var(--primary)]">
-                حقوق پایه <span className="text-red-500">*</span>
+                حقوق پایه (تومان) <span className="text-red-500">*</span>
               </label>
-
               <input
                 type="number"
                 min="0"
@@ -418,9 +371,8 @@ const TrainerFormModal = ({
 
             <div>
               <label className="mb-1 block font-semibold text-[var(--primary)]">
-                درصد کمیسیون <span className="text-red-500">*</span>
+                درصد کمیسیون (%) <span className="text-red-500">*</span>
               </label>
-
               <input
                 type="number"
                 min="0"

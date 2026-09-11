@@ -268,7 +268,7 @@ export function UserDropdown() {
                 return '/trainer/profile'
 
             case 'MEMBER':
-                return '/member/profile'
+                return 'member/user/profile'
 
             default:
                 return '/'

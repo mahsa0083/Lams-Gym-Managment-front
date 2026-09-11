@@ -12,6 +12,7 @@ import useCurrentSession from '@/utils/hooks/useCurrentSession'
 import useNavigation from '@/utils/hooks/useNavigation'
 import queryRoute from '@/utils/queryRoute'
 import { usePathname } from 'next/navigation'
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 const VerticalMenuContent = lazy(
@@ -69,32 +70,59 @@ const MobileNav = ({
             <Drawer
                 title=""
                 isOpen={isOpen}
-                header={false} // حذف هدر سفید اضافه
+               // header={false}
                 closable={false}
                 bodyClass={classNames('p-0 flex flex-col justify-between')}
-                contentClassName="side-nav-bg" // رنگ یک‌دست کل کشو با سایدبار اصلی
+                contentClassName="side-nav-bg"
                 width={280}
                 placement={direction === DIR_RTL ? 'right' : 'left'}
                 onClose={handleDrawerClose}
             >
-                {/* 🎨 ایجاد کانتینر اصلی سایدبار با data-role و فاصله مناسب از بالا (pt-6) */}
+                {/* 🎨 کانتینر اصلی منوی موبایل */}
                 <div 
                     data-role={role} 
-                    className="side-nav side-nav-bg side-nav-expand h-full w-full flex flex-col pt-6 px-2"
+                    className="side-nav side-nav-bg side-nav-expand h-full w-full flex flex-col pt-6 px-2 overflow-y-auto"
                 >
-                    <Suspense fallback={<></>}>
-                        {isOpen && (
-                            <VerticalMenuContent
-                                collapsed={false}
-                                navigationTree={navigationTree}
-                                routeKey={currentRouteKey}
-                                userAuthority={session?.user?.authority || []}
-                                direction={direction}
-                                translationSetup={translationSetup}
-                                onMenuItemClick={handleDrawerClose}
+                    {/* 🌟 بخش لوگو و عنوان در بالای منوی موبایل */}
+                    <div className="flex flex-col items-center justify-center mb-6 pb-4 ">
+                        <Link 
+                            href={appConfig.authenticatedEntryPath} 
+                            onClick={handleDrawerClose}
+                            className="flex flex-col items-center justify-center group"
+                        >
+                            <img
+                                src="/img/logo/logoside2.png"
+                                alt="Fither Logo"
+                                className="w-20 h-20 object-contain drop-shadow-md transition-transform duration-300 group-hover:scale-105"
                             />
-                        )}
-                    </Suspense>
+                            <span 
+                                className="mt-2 text-lg font-bold tracking-widest text-white/90 font-serif select-none"
+                                style={{
+                                    fontFamily: "'Cinzel', serif",
+                                    letterSpacing: '0.15em',
+                                }}
+                            >
+                                FITHER
+                            </span>
+                        </Link>
+                    </div>
+
+                    {/* لیست آیتم‌های منو */}
+                    <div className="flex-1">
+                        <Suspense fallback={<></>}>
+                            {isOpen && (
+                                <VerticalMenuContent
+                                    collapsed={false}
+                                    navigationTree={navigationTree}
+                                    routeKey={currentRouteKey}
+                                    userAuthority={session?.user?.authority || []}
+                                    direction={direction}
+                                    translationSetup={translationSetup}
+                                    onMenuItemClick={handleDrawerClose}
+                                />
+                            )}
+                        </Suspense>
+                    </div>
                 </div>
             </Drawer>
         </>

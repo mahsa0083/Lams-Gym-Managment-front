@@ -183,7 +183,7 @@ export default function MemberDashboard() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
 
-    // استیت‌های مربوط به انتخاب پکیج و دریافت کلاس‌های آن
+    // استیت‌های مربوط به انتخاب دوره و دریافت کلاس‌های آن
     const [selectedPackage, setSelectedPackage] = useState<PackageItem | null>(null)
     const [packageClasses, setPackageClasses] = useState<PackageClassItem[]>([])
     const [loadingClasses, setLoadingClasses] = useState(false)
@@ -274,7 +274,7 @@ export default function MemberDashboard() {
         }
     }
 
-    // دریافت کلاس‌های یک پکیج
+    // دریافت کلاس‌های یک دوره
     const handleOpenPackageDetails = async (pkg: PackageItem) => {
         setSelectedPackage(pkg)
         setLoadingClasses(true)
@@ -290,7 +290,7 @@ export default function MemberDashboard() {
                 err?.response?.data?.detail ||
                 err?.response?.data?.message ||
                 err?.message ||
-                'دریافت اطلاعات کلاس‌های این پکیج با خطا مواجه شد.'
+                'دریافت اطلاعات کلاس‌های این دوره با خطا مواجه شد.'
             )
         } finally {
             setLoadingClasses(false)
@@ -518,14 +518,16 @@ export default function MemberDashboard() {
                             رزرو دوره جدید
                         </button>
                         <button
-                            onClick={() =>
-                                activeSubscription
-                                    ? router.push(`/member/profile?subscriptionId=${activeSubscription.subscriptionId}`)
-                                    : router.push('/member/profile')
-                            }
+                            onClick={() => {
+                                // if (activeSubscription) {
+                                //     router.push(`/member/profile?subscriptionId=${encodeURIComponent(String(activeSubscription.subscriptionId))}`)
+                                // } else {
+                                    router.push('/member/profile')
+                               // }
+                            }}
                             className="flex-1 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-[#1D3557] font-bold py-3 px-4 rounded-xl transition-all text-sm"
                         >
-                            مشاهده پروفایل و اشتراک
+                            مشاهده پروفایل  
                         </button>
                     </div>
                 </div>
@@ -551,12 +553,12 @@ export default function MemberDashboard() {
                 </div>
             </div>
 
-            {/* لیست پکیج‌های باشگاه (از /packages) */}
+            {/* لیست دوره‌های باشگاه (از /packages) */}
             <div className="bg-white p-6 rounded-2xl border border-[#A8DADC]/40 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-lg font-bold text-[#1D3557]">پکیج‌ها و دوره‌های باشگاه</h2>
-                        <p className="text-xs text-[#457B9D] mt-0.5">پکیج مورد نظر خود را برای مشاهده کلاس‌ها انتخاب کنید.</p>
+                        <h2 className="text-lg font-bold text-[#1D3557]">دوره‌ها و دوره‌های باشگاه</h2>
+                        <p className="text-xs text-[#457B9D] mt-0.5">دوره مورد نظر خود را برای مشاهده کلاس‌ها انتخاب کنید.</p>
                     </div>
                     <div className="hidden sm:flex items-center gap-2">
                         <button
@@ -575,9 +577,9 @@ export default function MemberDashboard() {
                 </div>
 
                 {loading ? (
-                    <div className="py-12 text-center text-sm text-[#457B9D]">در حال دریافت پکیج‌ها...</div>
+                    <div className="py-12 text-center text-sm text-[#457B9D]">در حال دریافت دوره‌ها...</div>
                 ) : !packages.length ? (
-                    <div className="py-12 text-center text-sm text-slate-400">پکیج فعالی یافت نشد.</div>
+                    <div className="py-12 text-center text-sm text-slate-400">دوره فعالی یافت نشد.</div>
                 ) : (
                     <div
                         ref={sliderRef}
@@ -653,7 +655,7 @@ export default function MemberDashboard() {
                     <div className="overflow-x-auto">
                         <div className="min-w-[650px]">
                             <div className="grid grid-cols-5 gap-3 bg-gray-50 rounded-xl p-3 text-[11px] font-bold text-[#457B9D]">
-                                <span>پکیج</span>
+                                <span>دوره</span>
                                 <span>مربی</span>
                                 <span>مبلغ</span>
                                 <span>روش پرداخت</span>
@@ -680,8 +682,8 @@ export default function MemberDashboard() {
                 )}
             </div>
 
-            {/* مودال جزئیات پکیج و دریافت کلاس‌های آن از /gym-classes/{packageId}/classes */}
-            {/* مودال جزئیات پکیج و کلاس‌های آن */}
+            {/* مودال جزئیات دوره و دریافت کلاس‌های آن از /gym-classes/{packageId}/classes */}
+            {/* مودال جزئیات دوره و کلاس‌های آن */}
             {selectedPackage && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
@@ -707,17 +709,17 @@ export default function MemberDashboard() {
                             </button>
                         </div>
 
-                        {/* بدنه مودال و لیست کلاس‌های پکیج */}
+                        {/* بدنه مودال و لیست کلاس‌های دوره */}
                         <div className="p-6 overflow-y-auto space-y-4 no-scrollbar">
                             <div className="flex items-center justify-between bg-blue-50/60 p-3 rounded-xl border border-blue-100 text-xs">
-                                <span className="font-bold text-[#1D3557]">شهریه پکیج:</span>
+                                <span className="font-bold text-[#1D3557]">شهریه دوره:</span>
                                 <span className="font-black text-[#E63946] text-sm">{formatMoney(selectedPackage.price)}</span>
                             </div>
 
                             <div className="flex items-center justify-between pt-2">
                                 <h4 className="font-bold text-sm text-[#1D3557] flex items-center gap-1.5">
                                     <BiDumbbell className="w-5 h-5 text-[#E63946]" />
-                                    کلاس‌های این پکیج
+                                    کلاس‌های این دوره
                                 </h4>
                             </div>
 
@@ -729,7 +731,7 @@ export default function MemberDashboard() {
                                 </div>
                             ) : packageClasses.length === 0 ? (
                                 <div className="py-6 text-center text-xs text-slate-400 bg-gray-50 rounded-xl">
-                                    هیچ کلاسی برای این پکیج ثبت نشده است.
+                                    هیچ کلاسی برای این دوره ثبت نشده است.
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -744,10 +746,10 @@ export default function MemberDashboard() {
                                                     <div className="text-xs text-[#457B9D] mt-0.5">مربی: {cls.trainerFullName}</div>
                                                 </div>
 
-                                                {/* دکمه قرمز رزرو دوره برای هر کلاس با ارسال شناسه پکیج و کلاس */}
+                                                {/* دکمه قرمز رزرو دوره برای هر کلاس با ارسال شناسه دوره و کلاس */}
                                                 <button
                                                     onClick={() => {
-                                                        router.push(`/member/courses/reserve?packageId=${selectedPackage.id}&classId=${cls.gymClassId}`)
+                                                        router.push(`/member/courses/reserve?packageId=${encodeURIComponent(String(selectedPackage.id))}&classId=${encodeURIComponent(String(cls.gymClassId))}`)
                                                     }}
                                                     disabled={cls.capacity <= 0}
                                                     className="bg-[#E63946] hover:bg-[#E63946]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-4 py-2 rounded-xl text-xs transition-colors shadow-sm shrink-0 self-start sm:self-auto"
@@ -791,15 +793,15 @@ export default function MemberDashboard() {
                             )}
                         </div>
 
-                        {/* فوتر مودال همراه با دکمه رزرو مستقیم کل پکیج */}
+                        {/* فوتر مودال همراه با دکمه رزرو مستقیم کل دوره */}
                         <div className="p-4 border-t border-[#A8DADC]/30 bg-white flex items-center justify-between gap-3">
                             <button
                                 onClick={() => {
-                                    router.push(`/member/courses/reserve?packageId=${selectedPackage.id}`)
+                                    router.push(`/member/courses/reserve?packageId=${encodeURIComponent(String(selectedPackage.id))}`)
                                 }}
                                 className="bg-[#E63946] hover:bg-[#E63946]/90 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition-colors shadow-md"
                             >
-                                رزرو دوره (این پکیج)
+                                رزرو دوره (این دوره)
                             </button>
                             <button
                                 onClick={() => setSelectedPackage(null)}
