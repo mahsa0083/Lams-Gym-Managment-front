@@ -269,11 +269,11 @@ export default function AdminTrainersListPage() {
   const [deleteTrainerId, setDeleteTrainerId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [errorDialog, setErrorDialog] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-  });
+  // const [errorDialog, setErrorDialog] = useState({
+  //   isOpen: false,
+  //   title: "",
+  //   message: "",
+  // });
 
   /* ------------------------------------------------------------------------ */
   /*                                Error dialog                              */
@@ -284,19 +284,19 @@ export default function AdminTrainersListPage() {
     title: string,
     fallbackMessage: string
   ) => {
-    setErrorDialog({
-      isOpen: true,
-      title,
-      message: getApiErrorMessage(error, fallbackMessage),
-    });
+    // setErrorDialog({
+    //   isOpen: true,
+    //   title,
+    //   message: getApiErrorMessage(error, fallbackMessage),
+    // });
   };
 
-  const closeErrorDialog = () => {
-    setErrorDialog((current) => ({
-      ...current,
-      isOpen: false,
-    }));
-  };
+  // const closeErrorDialog = () => {
+  //   setErrorDialog((current) => ({
+  //     ...current,
+  //     isOpen: false,
+  //   }));
+  // };
 
   /* ------------------------------------------------------------------------ */
   /*                                  GET ALL                                 */
@@ -899,12 +899,12 @@ export default function AdminTrainersListPage() {
       />
 
       {/* Central API error dialog */}
-      <ApiErrorDialog
+      {/* <ApiErrorDialog
         isOpen={errorDialog.isOpen}
         title={errorDialog.title}
         message={errorDialog.message}
         onClose={closeErrorDialog}
-      />
+      /> */}
 
       {/* Delete confirmation dialog */}
       {deleteTrainerId !== null && (

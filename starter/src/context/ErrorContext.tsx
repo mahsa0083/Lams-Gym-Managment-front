@@ -1,166 +1,184 @@
-'use client';
+'use client'
 
 import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-  ReactNode,
-} from 'react';
-import { HiOutlineExclamationCircle } from 'react-icons/hi';
-import Dialog from '@/components/ui/Dialog';
-import Button from '@/components/ui/Button';
+    createContext,
+    useContext,
+    useState,
+    useCallback,
+    useEffect,
+    ReactNode,
+} from 'react'
+import { HiOutlineExclamationCircle } from 'react-icons/hi'
+import Dialog from '@/components/ui/Dialog'
+import Button from '@/components/ui/Button'
 
 // ساختار استاندارد ProblemDetails در ASP.NET Core
 export interface ApiErrorResponse {
-  type?: string;
-  title?: string;
-  status?: number;
-  detail?: string;
-  instance?: string;
-  errors?: Record<string, string[]>;
+    type?: string
+    title?: string
+    status?: number
+    detail?: string
+    instance?: string
+    errors?: Record<string, string[]>
 }
 
 interface ErrorContextType {
-  showError: (error: ApiErrorResponse | any) => void;
-  clearError: () => void;
+    showError: (error: ApiErrorResponse | any) => void
+    clearError: () => void
 }
 
-const ErrorContext = createContext<ErrorContextType | undefined>(undefined);
+const ErrorContext = createContext<ErrorContextType | undefined>(undefined)
 
 // متغیر پل ارتباطی بین Axios Interceptor و React Context
-let globalShowError: ((error: any) => void) | null = null;
+let globalShowError: ((error: any) => void) | null = null
 
 // تابعی که در اینترسپتور axios صدا زده می‌شود
 export const triggerGlobalError = (error: any) => {
-  if (globalShowError) {
-    globalShowError(error);
-  } else {
-    console.warn('ErrorProvider هنوز mount نشده است، اما خطایی رخ داد:', error);
-  }
-};
+    if (globalShowError) {
+        globalShowError(error)
+    } else {
+        console.warn(
+            'ErrorProvider هنوز mount نشده است، اما خطایی رخ داد:',
+            error,
+        )
+    }
+}
 
 // نگاشت کد وضعیت HTTP به عنوان فارسی مناسب
 const getFriendlyTitle = (status?: number, defaultTitle?: string): string => {
-  switch (status) {
-    case 400:
-      return 'درخواست نامعتبر';
-    case 401:
-      return 'عدم دسترسی (لطفاً مجدداً وارد شوید)';
-    case 403:
-      return 'دسترسی غیرمجاز';
-    case 404:
-      return 'اطلاعات مورد نظر یافت نشد';
-    case 409:
-      return 'تداخل در عملیات';
-    case 500:
-      return 'خطای داخلی سرور';
-    default:
-      return defaultTitle || 'خطایی رخ داده است';
-  }
-};
+    switch (status) {
+        case 400:
+            return 'درخواست نامعتبر'
+        case 401:
+            return 'عدم دسترسی (لطفاً مجدداً وارد شوید)'
+        case 403:
+            return 'دسترسی غیرمجاز'
+        case 404:
+            return 'اطلاعات مورد نظر یافت نشد'
+        case 409:
+            return 'تداخل در عملیات'
+        case 500:
+            return 'خطای داخلی سرور'
+        default:
+            return defaultTitle || 'خطایی رخ داده است'
+    }
+}
 
 export const ErrorProvider = ({ children }: { children: ReactNode }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [errorData, setErrorData] = useState<ApiErrorResponse | null>(null);
+    const [isOpen, setIsOpen] = useState(false)
+    const [errorData, setErrorData] = useState<ApiErrorResponse | null>(null)
 
-  const showError = useCallback((error: ApiErrorResponse | any) => {
-    // استخراج خطا از پاسخ Axios در صورتی که آبجکت axios error پاس داده شود
-    const responseData: ApiErrorResponse = error?.response?.data || error;
+    const showError = useCallback((error: ApiErrorResponse | any) => {
+        // استخراج خطا از پاسخ Axios در صورتی که آبجکت axios error پاس داده شود
+        const responseData: ApiErrorResponse = error?.response?.data || error
 
-    setErrorData({
-      status: responseData?.status || error?.response?.status || 500,
-      title: responseData?.title || 'خطای سرور',
-      detail:
-        responseData?.detail ||
-        error?.message ||
-        'مشکلی در برقراری ارتباط رخ داده است.',
-      instance: responseData?.instance,
-      errors: responseData?.errors,
-    });
-    setIsOpen(true);
-  }, []);
+        setErrorData({
+            status: responseData?.status || error?.response?.status || 500,
+            title: responseData?.title || 'خطای سرور',
+            detail:
+                responseData?.detail ||
+                error?.message ||
+                'مشکلی در برقراری ارتباط رخ داده است.',
+            instance: responseData?.instance,
+            errors: responseData?.errors,
+        })
+        setIsOpen(true)
+    }, [])
 
-  const clearError = useCallback(() => {
-    setIsOpen(false);
-    setErrorData(null);
-  }, []);
+    const clearError = useCallback(() => {
+        setIsOpen(false)
+        setErrorData(null)
+    }, [])
 
-  // متصل کردن نمایش ارور به متغیر سراسری
-  useEffect(() => {
-    globalShowError = showError;
-    return () => {
-      globalShowError = null;
-    };
-  }, [showError]);
+    // متصل کردن نمایش ارور به متغیر سراسری
+    useEffect(() => {
+        globalShowError = showError
+        return () => {
+            globalShowError = null
+        }
+    }, [showError])
 
-  const friendlyTitle = getFriendlyTitle(errorData?.status, errorData?.title);
+    const friendlyTitle = getFriendlyTitle(errorData?.status, errorData?.title)
 
-  return (
-    <ErrorContext.Provider value={{ showError, clearError }}>
-      {children}
+    return (
+        <ErrorContext.Provider value={{ showError, clearError }}>
+            {children}
 
-      {/* دیالوگ خطای سراسری */}
-      <Dialog
-        isOpen={isOpen}
-        onClose={clearError}
-        shouldCloseOnOverlayClick={false}
-        shouldCloseOnEsc={true}
-      >
-        <div className="dir-rtl text-right p-1">
-          {/* بخش عنوان و کد خطا */}
-          <div className="flex items-center justify-between border-b pb-3 mb-4">
-            <div className="flex items-center gap-2 text-red-600">
-              <HiOutlineExclamationCircle className="w-6 h-6 shrink-0" />
-              <h5 className="font-bold text-gray-800 text-base">{friendlyTitle}</h5>
-            </div>
-
-            {/* نمایش کد وضعیت خطا (Status Code Badge) */}
-            {errorData?.status && (
-              <span className="bg-red-50 text-red-700 text-xs font-mono font-semibold px-2.5 py-1 rounded-lg border border-red-200">
-                کد {errorData.status}
-              </span>
-            )}
-          </div>
-
-          {/* پیام اصلی ارور (detail دریافتی از بک‌اند) */}
-          <div className="text-gray-700 text-sm leading-relaxed mb-4">
-            {errorData?.detail}
-          </div>
-
-          {/* اعتبارسنجی فیلدها (ModelState Errors) */}
-          {errorData?.errors && Object.keys(errorData.errors).length > 0 && (
-            <ul className="list-disc list-inside text-xs text-red-500 mb-4 space-y-1 bg-red-50 p-3 rounded-xl border border-red-100">
-              {Object.entries(errorData.errors).map(([field, messages]) =>
-                messages.map((msg, idx) => (
-                  <li key={`${field}-${idx}`}>{msg}</li>
-                ))
-              )}
-            </ul>
-          )}
-
-          {/* فوتر و دکمه تایید */}
-          <div className="text-left mt-6 pt-3 border-t">
-            <Button
-              variant="solid"
-              className="bg-[#1D3557] hover:bg-[#152741] text-white px-6"
-              onClick={clearError}
+            {/* دیالوگ خطای سراسری */}
+            <Dialog
+                isOpen={isOpen}
+                onClose={clearError}
+                shouldCloseOnOverlayClick={false}
+                shouldCloseOnEsc={true}
             >
-              متوجه شدم
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-    </ErrorContext.Provider>
-  );
-};
+                <div
+                    dir="rtl"
+                    className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-6 text-right shadow-2xl animate-in fade-in zoom-in duration-200 dark:border-gray-700 dark:bg-gray-800"
+                >
+                    {/* عنوان و کد خطا */}
+                    <div className="mb-5 flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                                <HiOutlineExclamationCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                            </div>
+
+                            <h5 className="text-base font-bold text-gray-900 dark:text-white">
+                                {friendlyTitle}
+                            </h5>
+                        </div>
+
+                        {errorData?.status && (
+                            <span className="shrink-0 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 font-mono text-xs font-semibold text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                                کد {errorData.status}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* پیام اصلی */}
+                    {errorData?.detail && (
+                        <p className="mb-5 text-sm leading-7 text-gray-600 dark:text-gray-300">
+                            {errorData.detail}
+                        </p>
+                    )}
+
+                    {/* خطاهای اعتبارسنجی */}
+                    {errorData?.errors &&
+                        Object.keys(errorData.errors).length > 0 && (
+                            <ul className="mb-5 space-y-2 rounded-xl border border-red-100 bg-red-50 p-3 text-xs leading-6 text-red-600 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400">
+                                {Object.entries(errorData.errors).map(
+                                    ([field, messages]) =>
+                                        messages.map((msg, idx) => (
+                                            <li
+                                                key={`${field}-${idx}`}
+                                                className="flex items-start gap-2"
+                                            >
+                                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+                                                <span>{msg}</span>
+                                            </li>
+                                        )),
+                                )}
+                            </ul>
+                        )}
+
+                    {/* دکمه */}
+                    <Button
+                        variant="solid"
+                        onClick={clearError}
+                        className="mt-2 w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-600/20 transition-colors hover:bg-indigo-700"
+                    >
+                        متوجه شدم
+                    </Button>
+                </div>
+            </Dialog>
+        </ErrorContext.Provider>
+    )
+}
 
 // هوک اختصاصی برای استفاده اختیاری در صفحات
 export const useError = () => {
-  const context = useContext(ErrorContext);
-  if (!context) {
-    throw new Error('useError must be used within an ErrorProvider');
-  }
-  return context;
-};
+    const context = useContext(ErrorContext)
+    if (!context) {
+        throw new Error('useError must be used within an ErrorProvider')
+    }
+    return context
+}

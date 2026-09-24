@@ -73,7 +73,7 @@ export default function MyCoursesPage() {
     useState<MemberDetailsDTO | null>(null)
 
   const [loading, setLoading] = useState<boolean>(true)
-  const [error, setError] = useState<string | null>(null)
+const [error, setError] = useState<string | null>(null)
 
   const accessToken = (session as any)?.accessToken as string | undefined
 
@@ -154,7 +154,7 @@ export default function MyCoursesPage() {
   const loadMemberDetails = async (token: string) => {
     try {
       setLoading(true)
-      setError(null)
+     // setError(null)
 
       const jwtUser = getJwtUser(token)
 
@@ -177,9 +177,9 @@ export default function MyCoursesPage() {
     } catch (err: any) {
       console.error('Member Details API Error:', err)
 
-      setError(
-        err?.message || 'خطا در دریافت اطلاعات دوره‌های کاربر',
-      )
+      // setError(
+      //   err?.message || 'خطا در دریافت اطلاعات دوره‌های کاربر',
+      // )
     } finally {
       setLoading(false)
     }

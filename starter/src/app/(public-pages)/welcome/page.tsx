@@ -117,10 +117,10 @@ interface Payment {
 ========================= */
 
 const API_IMAGES = [
-    '/img/member/salon1.png',
+    '../../public/img/member/salon1.png',
     'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&q=80&w=800',
     'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?auto=format&fit=crop&q=80&w=800',
-    './img/member/pic1.png',
+    '../../public/img/member/pic1.png',
 ]
 
 /* =========================
@@ -406,7 +406,7 @@ export default function MemberDashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-[#A8DADC]/40">
                 <div className="flex items-center gap-4">
                     <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[#E63946] shrink-0">
-                        <Image src={API_IMAGES[3]} alt="تصویر کاربر" fill className="object-cover" />
+                        {/* <Image src={API_IMAGES[3]} alt="تصویر کاربر" fill className="object-cover" /> */}
                     </div>
                     <div>
                         <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 text-[#1D3557]">

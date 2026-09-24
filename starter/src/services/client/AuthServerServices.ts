@@ -76,3 +76,24 @@ export async function apiRefreshTokenServer(
 
     return response.data
 }
+export async function apiLogoutServer(data: { refreshToken: string }, accessToken?: string) {
+    const baseUrl =
+        process.env.NEXT_PUBLIC_API_BASE_URL ||
+        process.env.API_BASE_URL ||
+        'http://localhost:5000'
+
+    const response = await fetch(`${baseUrl}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+        throw new Error(`Logout failed with status ${response.status}`)
+    }
+
+    return response.json().catch(() => ({}))
+}

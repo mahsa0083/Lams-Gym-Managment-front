@@ -5,6 +5,10 @@ const authRoute: Routes = {
         key: 'signIn',
         authority: [],
     },
+    '/member': {
+        key: 'signIn',
+        authority: [],
+    },
     '/sign-up': {
         key: 'signUp',
         authority: [],

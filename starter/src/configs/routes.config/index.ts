@@ -44,6 +44,13 @@ export const protectedRoutes: Routes = {
     ...othersRoute,
 }
 
-export const publicRoutes: Routes = {}
+export const publicRoutes: Routes = {
+   
+ 
+    '/': { key: 'home', authority: [] }, // این باید حتما باشد
+    '/welcome': { key: 'welcome', authority: [] },
+    // سایر صفحات عمومی...
+
+}
 
 export const authRoutes = authRoute

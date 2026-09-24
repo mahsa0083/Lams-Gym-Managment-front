@@ -92,11 +92,7 @@ export default function AuthPage() {
                         .flat()
                         .join('\n')
                 }
-                // خطاهای شبکه؛ زمانی که Response نداریم
-                else if (!error.response) {
-                    message =
-                        'ارتباط با سرور برقرار نشد. اتصال اینترنت و اجرای بک‌اند را بررسی کنید.'
-                }
+               
             }
 
             showCustomDialog('خطا در ارسال کد', message)
@@ -235,10 +231,10 @@ const formatGregorianDate = (date: Date): string => {
                             ل
                         </div>
                         <h1 className="text-base font-extrabold text-gray-900 dark:text-white">
-                            گروه فناوری لمسه
+                        گروه فناوری لمس
                         </h1>
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                            سامانه مدیریت یکپارچه اعضا
+                          سامانه مدیریت یکپارچه اعضا باشگاه
                         </p>
                     </div>
                 </div>
@@ -340,7 +336,7 @@ const formatGregorianDate = (date: Date): string => {
                                         <input
                                             type="text"
                                             maxLength={6}
-                                            placeholder="کد ۶ رقمی"
+                                            placeholder=""
                                             value={otpCode}
                                             onChange={(e) =>
                                                 setOtpCode(e.target.value)

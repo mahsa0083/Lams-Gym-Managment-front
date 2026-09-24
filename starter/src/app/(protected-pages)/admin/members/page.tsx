@@ -324,11 +324,11 @@ export default function MembersManagementPage() {
   const [deleteMemberId, setDeleteMemberId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [errorDialog, setErrorDialog] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-  });
+  // const [errorDialog, setErrorDialog] = useState({
+  //   isOpen: false,
+  //   title: "",
+  //   message: "",
+  // });
 
   const showError = (title: string, error: unknown) => {
     const message =
@@ -336,16 +336,16 @@ export default function MembersManagementPage() {
         ? error.message
         : "عملیات موردنظر با خطا مواجه شد. لطفاً دوباره تلاش کنید.";
 
-    setErrorDialog({
-      isOpen: true,
-      title,
-      message,
-    });
+    // setErrorDialog({
+    //   isOpen: true,
+    //   title,
+    //   message,
+    // });
   };
 
-  const closeErrorDialog = () => {
-    setErrorDialog((previous) => ({ ...previous, isOpen: false }));
-  };
+  // const closeErrorDialog = () => {
+  //   setErrorDialog((previous) => ({ ...previous, isOpen: false }));
+  // };
 
   /* -------------------------------------------------------------------------- */
   /*                              API Calls Integrated                          */
@@ -1078,7 +1078,7 @@ export default function MembersManagementPage() {
       )}
 
       {/* Error Dialog */}
-      {errorDialog.isOpen && (
+      {/* {errorDialog.isOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
@@ -1097,7 +1097,7 @@ export default function MembersManagementPage() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

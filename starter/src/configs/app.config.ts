@@ -10,7 +10,7 @@ const appConfig: AppConfig = {
    apiPrefix: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5288'}/api`,
 
 
-    authenticatedEntryPath: '/home',
+    authenticatedEntryPath: '/dashboard',
     unAuthenticatedEntryPath: '/sign-in',
     locale: 'en',
     activeNavTranslation: false,

@@ -109,11 +109,11 @@ export default function AdminDashboardPage() {
   const [isLoadingPayments, setIsLoadingPayments] = useState<boolean>(true);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
-  const [errorDialog, setErrorDialog] = useState<ErrorDialogState>({
-    isOpen: false,
-    title: "",
-    message: "",
-  });
+  // const [errorDialog, setErrorDialog] = useState<ErrorDialogState>({
+  //   isOpen: false,
+  //   title: "",
+  //   message: "",
+  // });
 
   /* ------------------------------------------------------------------------ */
   /*                              Error handling                              */
@@ -125,19 +125,19 @@ export default function AdminDashboardPage() {
         ? error.message
         : "عملیات موردنظر با خطا مواجه شد. لطفاً دوباره تلاش کنید.";
 
-    setErrorDialog({
-      isOpen: true,
-      title,
-      message,
-    });
+    // setErrorDialog({
+    //   isOpen: true,
+    //   title,
+    //   message,
+    // });
   }, []);
 
-  const closeErrorDialog = () => {
-    setErrorDialog((prev) => ({
-      ...prev,
-      isOpen: false,
-    }));
-  };
+  // const closeErrorDialog = () => {
+  //   setErrorDialog((prev) => ({
+  //     ...prev,
+  //     isOpen: false,
+  //   }));
+  // };
 
   /* ------------------------------------------------------------------------ */
   /*                               API Calls                                  */
@@ -454,7 +454,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Central Error Dialog */}
-      {errorDialog.isOpen && (
+      {/* {errorDialog.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
@@ -480,7 +480,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

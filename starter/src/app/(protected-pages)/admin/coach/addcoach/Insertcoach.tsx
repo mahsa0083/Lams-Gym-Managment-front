@@ -58,7 +58,7 @@ const initialFormData: TrainerFormData = {
   baseSalary: "",
   commissionPercentage: "",
 };
-
+export type CreateTrainerDto = TrainerDto;
 const TrainerFormModal = ({
   isOpen,
   onClose,
@@ -68,7 +68,7 @@ const TrainerFormModal = ({
 }: TrainerFormModalProps) => {
   const [formData, setFormData] = useState<TrainerFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+ const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -121,7 +121,7 @@ const TrainerFormModal = ({
     setErrorMessage("");
 
     if (!formData.firstName.trim()) {
-      setErrorMessage("لطفاً نام را وارد کنید.");
+     setErrorMessage("لطفاً نام را وارد کنید.");
       return;
     }
 
@@ -136,7 +136,7 @@ const TrainerFormModal = ({
     }
 
     if (formData.nationalCode.length !== 10) {
-      setErrorMessage("کد ملی باید دقیقاً ۱۰ رقم باشد.");
+     setErrorMessage("کد ملی باید دقیقاً ۱۰ رقم باشد.");
       return;
     }
 

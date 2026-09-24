@@ -52,7 +52,7 @@ const filterNavigationByAuthority = (
         });
 };
 
-const VerticalMenuContent = (props: VerticalMenuContentProps) => {
+const  VerticalMenuContent = (props: VerticalMenuContentProps) => {
     const {
         collapsed,
         routeKey,

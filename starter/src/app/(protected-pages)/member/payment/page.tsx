@@ -97,7 +97,7 @@ export default function PaymentHistoryPage() {
   const loadpage = async (token: string) => {
     try {
       setLoading(true)
-      setError(null)
+     // setError(null)
       
       const jwtUser = getJwtUser(token)
       if (!jwtUser.id) throw new Error('شناسه کاربر در JWT پیدا نشد.')
@@ -116,7 +116,7 @@ export default function PaymentHistoryPage() {
     catch (err: any) 
     {
       console.error("Payment API Error:", err); // این را اضافه کن تا جزئیات خطا در کنسول مرورگر چاپ شود
-      setError(err?.message || 'خطا در دریافت سوابق پرداخت‌ها')
+      //setError(err?.message || 'خطا در دریافت سوابق پرداخت‌ها')
     }
    
   finally {
